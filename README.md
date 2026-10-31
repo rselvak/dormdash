@@ -9,6 +9,16 @@ test → production CI/CD pipeline.
 - **Mobile:** responsive UI + installable PWA manifest
 - **CI/CD:** GitHub Actions → Vercel (test and production environments)
 
+## Live environments
+
+| Environment | URL | How it deploys |
+| --- | --- | --- |
+| Production | <https://dormdash-dusky.vercel.app> | Manual: Actions → Deploy to Production → Run workflow |
+| Test | Vercel preview URL, shown in each Actions run | Push to the `test` branch |
+
+Both currently run Clerk **development** keys. See "Clerk production keys"
+below before treating production as real.
+
 ## Requirements
 
 - Node.js 20.9 or newer
@@ -129,6 +139,23 @@ readable after deployment is triggered.
 Until `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` exist, the deploy
 workflows skip themselves with a notice instead of failing. CI keeps running.
 
+### Vercel environment variables
+
+The deploy workflows run `vercel pull` and then `vercel build`, so every runtime
+variable must exist in the Vercel project (Production **and** Preview), not only
+in GitHub.
+
+> **Gotcha:** `vercel env add` marks values *sensitive* by default. A sensitive
+> variable cannot be pulled back, so `vercel pull` writes `[SENSITIVE]` and the
+> deployed app gets a broken value. Add app variables with `--no-sensitive`:
+>
+> ```bash
+> vercel env add CLERK_SECRET_KEY --environment production,preview --no-sensitive
+> ```
+
+Required in Vercel: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and
+the four `NEXT_PUBLIC_CLERK_*` redirect variables.
+
 ### One-time setup
 
 1. Create the GitHub repository and push this code.
@@ -155,6 +182,19 @@ required reviewers require a public repo or a paid plan.
 Vercel keeps every deployment. Promote the previous one from the Vercel
 dashboard. Keep database migrations backwards compatible (expand/contract) so a
 rollback does not break the previous code.
+
+## Clerk production keys
+
+The keys in `.env.local` are **accountless development** keys. They work
+everywhere, including the live deployments, but Clerk shows a "Development mode"
+badge and caps usage. Before real traffic:
+
+1. Create a free account at <https://dashboard.clerk.com>.
+2. Claim this app with the token in `.clerk/keyless.json`. That file is
+   gitignored and is the only copy of the claim token — do not delete it.
+3. Create a Production instance and copy its `pk_live_…` and `sk_live_…` keys.
+4. Update them in Vercel (Production environment) and in GitHub secrets, then
+   redeploy. Do not put `pk_live_` values in this repository.
 
 ## Adding a database
 
