@@ -39,7 +39,7 @@ npx clerk@latest init --accountless --framework next
 | `npm run build` | Production build |
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint |
-| `npm run typecheck` | `tsc --noEmit` |
+| `npm run typecheck` | `next typegen && tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:watch` | Unit tests in watch mode |
 
