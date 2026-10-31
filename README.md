@@ -103,8 +103,14 @@ preview URL through the Vercel GitHub integration.
 
 ### Production — `.github/workflows/deploy-prod.yml`
 
-On push to `main`: requires approval through the `production` GitHub
-Environment, then builds and deploys with `--prod`, followed by a smoke test.
+Production is a **manual** deploy. Merging to `main` runs CI but does not ship.
+To release: **Actions → Deploy to Production → Run workflow**. The workflow
+builds with `--prod`, deploys, then smoke tests the URL.
+
+This is deliberate. GitHub Free does not allow required reviewers on private
+repos, so a manual trigger is the gate that works on every plan. On a paid plan
+you can add a required reviewer to the `production` environment for a second
+approval step without changing the workflow.
 
 ### Required repository secrets
 
@@ -118,18 +124,31 @@ Environment, then builds and deploys with `--prod`, followed by a smoke test.
 
 Set them under **Settings → Secrets and variables → Actions**. Scope the Vercel
 ones to the `test` and `production` environments so production values are only
-readable after approval.
+readable after deployment is triggered.
+
+Until `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` exist, the deploy
+workflows skip themselves with a notice instead of failing. CI keeps running.
 
 ### One-time setup
 
 1. Create the GitHub repository and push this code.
 2. Import the repository into Vercel and copy the project/org IDs.
 3. Add the secrets above.
-4. Create the `test` and `production` environments in GitHub; add a required
-   reviewer to `production`.
+4. Create the `test` and `production` environments in GitHub.
 5. Create a `test` branch (`git checkout -b test && git push -u origin test`).
 6. Turn off Vercel Deployment Protection for the test environment, or add a
    bypass token to the smoke test, otherwise the check receives HTTP 401.
+
+### Branch protection
+
+`main` is protected by a ruleset named `protect-main`:
+
+- no deletion and no force-push;
+- the `Lint, typecheck, test, build` check must pass, and the branch must be up
+  to date before merging.
+
+That means changes land through a pull request, not a direct push. Rulesets and
+required reviewers require a public repo or a paid plan.
 
 ### Rollback
 
