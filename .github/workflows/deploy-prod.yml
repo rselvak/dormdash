@@ -1,8 +1,10 @@
 name: Deploy to Production
 
+# Production is deliberately manual. Every merge to `main` still runs CI, but
+# shipping is a separate, human decision: open Actions → "Deploy to Production"
+# → Run workflow. This works on any GitHub plan, including free private repos,
+# where required reviewers are not available.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -41,8 +43,9 @@ jobs:
     needs: preflight
     if: needs.preflight.outputs.enabled == 'true'
     runs-on: ubuntu-latest
-    # Configure a required reviewer on this environment in
-    # Settings → Environments → production to get a manual approval gate.
+    # The `production` environment records deploy history and URLs. On GitHub
+    # Free it cannot require reviewers, so the manual trigger above is the gate.
+    # On a paid plan, add a required reviewer here for a second approval step.
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
@@ -52,10 +55,10 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm

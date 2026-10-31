@@ -16,14 +16,19 @@ jobs:
   analyze:
     name: Analyze JavaScript and TypeScript
     runs-on: ubuntu-latest
+    # Workflows triggered by Dependabot get a read-only GITHUB_TOKEN, so the
+    # SARIF upload fails with "Resource not accessible by integration".
+    # Dependency risk is already covered by Dependabot alerts and the npm audit
+    # step in CI, and CodeQL still runs on the merged result via push/schedule.
+    if: github.actor != 'dependabot[bot]'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
