@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/nextjs";
+import { Show, UserButton } from "@clerk/nextjs";
 
 import { siteConfig } from "@/lib/site";
 
@@ -39,22 +34,18 @@ export function SiteHeader() {
 
         <div className="flex items-center gap-2">
           <Show when="signed-out">
-            <SignInButton mode="modal">
-              <button
-                type="button"
-                className="inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-muted transition-colors hover:text-foreground"
-              >
-                Sign in
-              </button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <button
-                type="button"
-                className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
-              >
-                Sign up
-              </button>
-            </SignUpButton>
+            <Link
+              href="/sign-in"
+              className="inline-flex h-10 items-center rounded-full px-4 text-sm font-medium text-muted transition-colors hover:text-foreground"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/sign-up"
+              className="inline-flex h-10 items-center rounded-full bg-accent px-4 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+            >
+              Sign up
+            </Link>
           </Show>
           <Show when="signed-in">
             <UserButton

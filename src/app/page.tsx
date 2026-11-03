@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Show, SignUpButton } from "@clerk/nextjs";
+import { Show } from "@clerk/nextjs";
 
 const features = [
   {
@@ -44,14 +44,12 @@ export default function Home() {
 
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           <Show when="signed-out">
-            <SignUpButton mode="modal">
-              <button
-                type="button"
-                className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-6 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
-              >
-                Create an account
-              </button>
-            </SignUpButton>
+            <Link
+              href="/sign-up"
+              className="inline-flex h-12 items-center justify-center rounded-full bg-accent px-6 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-90"
+            >
+              Create an account
+            </Link>
           </Show>
           <Show when="signed-in">
             <Link

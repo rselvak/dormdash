@@ -1,12 +1,29 @@
-import { SignUp } from "@clerk/nextjs";
-import { Suspense } from "react";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-export default function SignUpPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Suspense>
-        <SignUp />
-      </Suspense>
-    </div>
-  );
+import { RegistrationForm } from "@/components/registration-form";
+import { getRegistration } from "@/lib/registrations";
+
+export const metadata: Metadata = {
+  title: "Sign up",
+};
+
+export default async function SignUpPage() {
+  const { userId } = await auth();
+
+  if (!userId) {
+    return <RegistrationForm mode="signup" />;
+  }
+
+  const registration = await getRegistration(userId);
+
+  if (registration) {
+    redirect("/dashboard");
+  }
+
+  const user = await currentUser();
+  const accountEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+
+  return <RegistrationForm mode="onboarding" accountEmail={accountEmail} />;
 }
