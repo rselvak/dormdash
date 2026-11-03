@@ -28,7 +28,9 @@ below before treating production as real.
 
 ```bash
 npm install
-cp .env.example .env.local   # then fill in your Clerk keys
+cp .env.example .env.local   # then fill in Clerk keys and DATABASE_URL
+npx prisma dev --detach --name dormdash   # local Postgres; copy its URL
+npx prisma migrate deploy
 npm run dev
 ```
 
@@ -52,21 +54,29 @@ npx clerk@latest init --accountless --framework next
 | `npm run typecheck` | `next typegen && tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:watch` | Unit tests in watch mode |
+| `npm run db:generate` | Regenerate the Prisma client |
+| `npm run db:migrate` | Create/apply a migration locally |
+| `npm run db:deploy` | Apply migrations (CI/production) |
+| `npm run db:studio` | Browse the database in Prisma Studio |
 
 ## Project structure
 
 ```
 src/
 ├── app/
-│   ├── dashboard/          Protected page (server-side auth check)
+│   ├── dashboard/          Parent/student dashboard, add-child page
 │   ├── sign-in/            Clerk sign-in route
-│   ├── sign-up/            Clerk sign-up route
+│   ├── sign-up/            Two-tab registration + server action
 │   ├── layout.tsx          Root layout, metadata, PWA wiring
 │   ├── manifest.ts         Web app manifest
 │   └── page.tsx            Public landing page
-├── components/             Header, mobile tab bar, footer
-├── lib/                    Site config and small utilities
+├── components/             Header, mobile tab bar, footer, forms
+├── data/                   Generated California college/major dataset
+├── lib/                    Validation, Prisma, registration queries
+│   └── generated/          Prisma client output (gitignored)
 └── proxy.ts                Clerk middleware + route protection
+prisma/                     Schema and migrations
+scripts/                    College Scorecard dataset generator
 tests/                      Vitest unit tests
 .github/workflows/          CI, CodeQL, test deploy, prod deploy
 ```
@@ -91,6 +101,12 @@ data — do not rely on the proxy alone.
 
 Public routes: `/`, `/sign-in`, `/sign-up`. Everything under `/dashboard`
 requires a session.
+
+Registration is part of authorization: a signed-in user with no `Parent` row is
+sent to `/sign-up` to finish onboarding. `completeRegistration` checks that the
+Clerk primary email matches the Parent 1 email on the form, so the login id is
+always the parent's email. Adding a student re-checks the session and that the
+family already has a registration.
 
 ## CI/CD
 
@@ -131,6 +147,7 @@ approval step without changing the workflow.
 | `VERCEL_PROJECT_ID` | both deploy workflows | From `vercel link` / project settings |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | CI build | Safe to expose; still keep it in secrets |
 | `CLERK_SECRET_KEY` | CI build, deploys | **Never** commit this |
+| `DATABASE_URL` | CI build, deploys | Postgres connection string (Neon) |
 
 Set them under **Settings → Secrets and variables → Actions**. Scope the Vercel
 ones to the `test` and `production` environments so production values are only
@@ -153,8 +170,8 @@ in GitHub.
 > vercel env add CLERK_SECRET_KEY --environment production,preview --no-sensitive
 > ```
 
-Required in Vercel: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and
-the four `NEXT_PUBLIC_CLERK_*` redirect variables.
+Required in Vercel: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, the
+four `NEXT_PUBLIC_CLERK_*` redirect variables, and `DATABASE_URL`.
 
 ### One-time setup
 
@@ -196,17 +213,41 @@ badge and caps usage. Before real traffic:
 4. Update them in Vercel (Production environment) and in GitHub secrets, then
    redeploy. Do not put `pk_live_` values in this repository.
 
-## Adding a database
+## Database
 
-The recommended next step is PostgreSQL with Prisma:
+The app stores registrations in PostgreSQL through Prisma 7 (`prisma/schema.prisma`):
+
+- `Parent` — one row per Clerk user, keyed by the Parent 1 email that signs in.
+- `Student` — many rows per parent (up to 10).
+
+For local development, Prisma Postgres runs without Docker:
 
 ```bash
-npm install prisma @prisma/client
-npx prisma init
+npx prisma dev --detach --name dormdash   # prints a postgres:// URL
+# put that URL in .env as DATABASE_URL
+npx prisma migrate deploy
 ```
 
-Then add `DATABASE_URL` to `.env.local`, GitHub Environments, and Vercel, and
-uncomment the `prisma migrate deploy` step in both deploy workflows.
+For production, create a Neon (or any Postgres) database and set `DATABASE_URL`
+in Vercel (Production and Preview) and in the GitHub `production` environment.
+Prefer Neon's direct, non-pooled host for migrations. Apply migrations with
+`npm run db:deploy` before deploying new code.
+
+### California colleges and majors
+
+`src/data/california-colleges.json` is generated from the U.S. Department of
+Education College Scorecard bulk downloads (public domain). It contains every
+California institution that awards undergraduate credentials, plus the
+undergraduate majors each one offers. The registration form searches it with a
+combobox and the server re-validates every college/major pair.
+
+Regenerate it after downloading `Most-Recent-Cohorts-Institution.csv` and
+`Most-Recent-Cohorts-Field-of-Study.csv` from
+<https://collegescorecard.ed.gov/data/>:
+
+```bash
+node scripts/fetch-california-colleges.mjs path/to/institution.csv path/to/field-of-study.csv
+```
 
 ## PWA notes
 

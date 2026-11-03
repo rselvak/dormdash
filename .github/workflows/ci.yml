@@ -25,6 +25,9 @@ jobs:
       # run the build without access to secrets.
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 'pk_test_Y2xlcmsuZXhhbXBsZS5jb20k' }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY || 'sk_test_ci_placeholder' }}
+      # Prisma only needs a syntactically valid URL to generate the client and
+      # build. CI never connects to this database.
+      DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://ci:ci@localhost:5432/ci?sslmode=disable' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7

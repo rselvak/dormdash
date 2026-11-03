@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>DormDash — Technology Stack</title>
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  body {
+    margin: 0;
+    font-family: "Segoe UI", -apple-system, "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.2pt;
+    line-height: 1.5;
+    color: #18181b;
+    background: #fff;
+  }
+
+  /* ---------- cover ---------- */
+  .cover {
+    padding: 8mm 0 10mm;
+    border-bottom: 3px solid #4f46e5;
+    margin-bottom: 9mm;
+  }
+
+  .eyebrow {
+    font-size: 8.5pt;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #4f46e5;
+    font-weight: 700;
+    margin: 0 0 5mm;
+  }
+
+  h1 {
+    font-size: 30pt;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin: 0 0 3mm;
+    font-weight: 800;
+  }
+
+  .subtitle {
+    font-size: 12pt;
+    color: #52525b;
+    margin: 0 0 7mm;
+    max-width: 150mm;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4mm 10mm;
+    font-size: 9pt;
+    color: #3f3f46;
+  }
+
+  .meta div strong { display: block; font-size: 7.8pt; letter-spacing: 0.08em; text-transform: uppercase; color: #71717a; font-weight: 600; margin-bottom: 1mm; }
+
+  /* ---------- headings ---------- */
+  h2 {
+    font-size: 14pt;
+    letter-spacing: -0.01em;
+    margin: 9mm 0 3mm;
+    padding-bottom: 1.6mm;
+    border-bottom: 1px solid #e4e4e7;
+    font-weight: 750;
+    break-after: avoid;
+  }
+
+  h2 .num {
+    color: #4f46e5;
+    font-variant-numeric: tabular-nums;
+    margin-right: 2.5mm;
+  }
+
+  h3 {
+    font-size: 10.5pt;
+    margin: 5mm 0 1.5mm;
+    font-weight: 700;
+    break-after: avoid;
+  }
+
+  p { margin: 0 0 2.5mm; }
+
+  a { color: #4f46e5; text-decoration: none; }
+
+  code, .mono {
+    font-family: "Cascadia Mono", Consolas, "SF Mono", Menlo, monospace;
+    font-size: 8.8pt;
+    background: #f4f4f5;
+    border-radius: 2px;
+    padding: 0.3mm 1.2mm;
+  }
+
+  /* ---------- tables ---------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 4mm;
+    font-size: 9.2pt;
+    break-inside: auto;
+  }
+
+  thead { display: table-header-group; }
+
+  tr { break-inside: avoid; }
+
+  th {
+    text-align: left;
+    font-size: 7.8pt;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #52525b;
+    font-weight: 700;
+    padding: 2mm 2.5mm;
+    background: #f4f4f5;
+    border-bottom: 1px solid #d4d4d8;
+  }
+
+  td {
+    padding: 2mm 2.5mm;
+    border-bottom: 1px solid #ebebee;
+    vertical-align: top;
+  }
+
+  td.tech { font-weight: 650; }
+  td.ver { font-family: "Cascadia Mono", Consolas, monospace; font-size: 8.6pt; white-space: nowrap; }
+  td.purpose { color: #3f3f46; }
+
+  tbody tr:nth-child(even) td { background: #fcfcfd; }
+
+  /* ---------- callouts ---------- */
+  .note {
+    border-left: 3px solid #4f46e5;
+    background: #f5f5ff;
+    padding: 3mm 4mm;
+    margin: 0 0 4mm;
+    font-size: 9.2pt;
+    break-inside: avoid;
+  }
+
+  .note strong { color: #3730a3; }
+
+  .warn { border-left-color: #d97706; background: #fffbeb; }
+  .warn strong { color: #92400e; }
+
+  /* ---------- grid cards ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3mm 4mm;
+    margin: 0 0 4mm;
+  }
+
+  .card {
+    border: 1px solid #e4e4e7;
+    border-radius: 3px;
+    padding: 3mm 3.5mm;
+    break-inside: avoid;
+  }
+
+  .card h4 {
+    margin: 0 0 1.2mm;
+    font-size: 9.2pt;
+    font-weight: 700;
+  }
+
+  .card p { margin: 0; font-size: 8.8pt; color: #52525b; line-height: 1.45; }
+
+  /* ---------- pipeline ---------- */
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 2mm;
+    margin: 0 0 4mm;
+    break-inside: avoid;
+  }
+
+  .step {
+    flex: 1;
+    border: 1px solid #d4d4d8;
+    border-top: 2.5px solid #4f46e5;
+    border-radius: 2px;
+    padding: 2.5mm 2mm;
+    text-align: center;
+  }
+
+  .step .n { font-size: 7.2pt; color: #71717a; letter-spacing: 0.1em; text-transform: uppercase; }
+  .step .t { font-size: 8.8pt; font-weight: 700; margin-top: 0.8mm; }
+
+  .arrow { align-self: center; color: #a1a1aa; font-size: 11pt; }
+
+  /* ---------- lists ---------- */
+  ul { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.2mm; }
+
+  .footer-note {
+    margin-top: 8mm;
+    padding-top: 3mm;
+    border-top: 1px solid #e4e4e7;
+    font-size: 8pt;
+    color: #71717a;
+  }
+
+  .pagebreak { break-before: page; }
+
+  .tick { color: #15803d; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <p class="eyebrow">Technology Reference</p>
+  <h1>DormDash</h1>
+  <p class="subtitle">
+    Every language, framework, library, service, and tool used to build, test,
+    secure, and ship this mobile-first web application.
+  </p>
+  <div class="meta">
+    <div><strong>Document date</strong>31 October 2026</div>
+    <div><strong>Repository</strong>github.com/rselvak/dormdash</div>
+    <div><strong>Production</strong>dormdash-dusky.vercel.app</div>
+    <div><strong>Platforms</strong>Web / PWA (mobile-first)</div>
+  </div>
+</header>
+
+<h2><span class="num">01</span>Summary</h2>
+
+<p>
+  DormDash is a Next.js application deployed to Vercel through GitHub Actions.
+  The stack is deliberately small: one framework, one styling engine, one
+  authentication provider, and one hosting platform. Everything is written in
+  TypeScript and validated on every pull request before it can reach
+  <code>main</code>.
+</p>
+
+<div class="grid">
+  <div class="card">
+    <h4>Application</h4>
+    <p>Next.js 16 App Router with React 19 server and client components, compiled by Turbopack.</p>
+  </div>
+  <div class="card">
+    <h4>Interface</h4>
+    <p>Tailwind CSS v4 with a custom light/dark theme, responsive layouts, and a mobile bottom tab bar.</p>
+  </div>
+  <div class="card">
+    <h4>Identity</h4>
+    <p>Clerk handles sign-in, sign-up, sessions, OAuth, and MFA. Protected routes call <code>auth.protect()</code>.</p>
+  </div>
+  <div class="card">
+    <h4>Delivery</h4>
+    <p>GitHub Actions runs CI and deploys to Vercel preview (test) and production environments.</p>
+  </div>
+</div>
+
+<h2><span class="num">02</span>Application stack</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:31%">Technology</th><th style="width:15%">Version</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="tech">Next.js</td>
+      <td class="ver">16.4.3</td>
+      <td class="purpose">Full-stack React framework. App Router, server components, route handlers, file-based metadata, and the production build pipeline.</td>
+    </tr>
+    <tr>
+      <td class="tech">React</td>
+      <td class="ver">19.3.1</td>
+      <td class="purpose">UI library. Server components render on the server; client components provide interactivity.</td>
+    </tr>
+    <tr>
+      <td class="tech">React DOM</td>
+      <td class="ver">19.3.1</td>
+      <td class="purpose">DOM renderer paired with React for the browser and server-rendered output.</td>
+    </tr>
+    <tr>
+      <td class="tech">TypeScript</td>
+      <td class="ver">5.9.3</td>
+      <td class="purpose">Language for all application code. <code>strict</code> mode is enabled; target ES2017, bundler module resolution.</td>
+    </tr>
+    <tr>
+      <td class="tech">Tailwind CSS</td>
+      <td class="ver">4.3.3</td>
+      <td class="purpose">Utility-first styling. Theme tokens defined with <code>@theme inline</code> in <code>globals.css</code>; automatic dark mode via <code>prefers-color-scheme</code>.</td>
+    </tr>
+    <tr>
+      <td class="tech">@tailwindcss/turbopack</td>
+      <td class="ver">4.3.3</td>
+      <td class="purpose">Tailwind integration for Turbopack, registered in <code>next.config.ts</code> so CSS compiles inside the Next.js build.</td>
+    </tr>
+    <tr>
+      <td class="tech">@clerk/nextjs</td>
+      <td class="ver">7.9.23</td>
+      <td class="purpose">Authentication SDK. Provider, middleware, hosted sign-in/sign-up UI, session handling, and server-side authorisation.</td>
+    </tr>
+    <tr>
+      <td class="tech">@clerk/backend</td>
+      <td class="ver">3.26.5</td>
+      <td class="purpose">Transitive Clerk server SDK used by <code>@clerk/nextjs</code> to verify sessions and call the Clerk API.</td>
+    </tr>
+    <tr>
+      <td class="tech">Geist &amp; Geist Mono</td>
+      <td class="ver">via next/font</td>
+      <td class="purpose">Self-hosted variable fonts loaded by <code>next/font/google</code>, exposed as <code>--font-geist-sans</code> and <code>--font-geist-mono</code>. No external font requests at runtime.</td>
+    </tr>
+    <tr>
+      <td class="tech">Web App Manifest</td>
+      <td class="ver">Next.js metadata route</td>
+      <td class="purpose">Generates <code>/manifest.webmanifest</code> so the site installs to a phone home screen as a PWA.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Runtime and language settings</h3>
+<ul>
+  <li>Node.js <strong>26.13.0</strong> locally; CI pins Node <strong>22</strong>; <code>package.json</code> requires <code>&gt;=20.9.0</code>.</li>
+  <li>npm <strong>11.20.0</strong> with a committed <code>package-lock.json</code>; CI installs with <code>npm ci</code>.</li>
+  <li>Path alias <code>@/*</code> maps to <code>./src/*</code>; generated route types are included from <code>.next/types</code>.</li>
+  <li>Turbopack is the default bundler for both <code>next dev</code> and <code>next build</code> in Next.js 16.</li>
+  <li>Request interception lives in <code>src/proxy.ts</code> — Next.js 16 renamed <code>middleware.ts</code> to <code>proxy.ts</code>.</li>
+</ul>
+
+<h2 class="pagebreak"><span class="num">03</span>Authentication and security</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:31%">Technology</th><th style="width:15%">Version</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="tech">Clerk</td>
+      <td class="ver">7.9.23</td>
+      <td class="purpose">Hosted identity provider: email + password, Google OAuth, session cookies, and multi-factor authentication.</td>
+    </tr>
+    <tr>
+      <td class="tech">Clerk middleware</td>
+      <td class="ver">clerkMiddleware()</td>
+      <td class="purpose">Runs in <code>src/proxy.ts</code>, protects the session context, and injects a per-request Content-Security-Policy nonce.</td>
+    </tr>
+    <tr>
+      <td class="tech">Route-level authorisation</td>
+      <td class="ver">auth.protect()</td>
+      <td class="purpose">Each protected page calls <code>await auth.protect()</code> on the server. Unauthenticated visitors are redirected to sign-in with a return URL.</td>
+    </tr>
+    <tr>
+      <td class="tech">Content Security Policy</td>
+      <td class="ver">nonce-based</td>
+      <td class="purpose">Restricts scripts, styles, fonts, images, and frames to known origins, including the Clerk Frontend API and Turnstile challenge endpoints.</td>
+    </tr>
+    <tr>
+      <td class="tech">HTTP security headers</td>
+      <td class="ver">next.config.ts</td>
+      <td class="purpose">
+        <code>X-Content-Type-Options: nosniff</code>,
+        <code>X-Frame-Options: DENY</code>,
+        <code>Referrer-Policy: strict-origin-when-cross-origin</code>,
+        <code>Permissions-Policy</code> disabling camera, microphone, geolocation and browsing topics,
+        <code>Strict-Transport-Security</code> for two years with preload.
+      </td>
+    </tr>
+    <tr>
+      <td class="tech">Secret management</td>
+      <td class="ver">—</td>
+      <td class="purpose">Clerk keys live in <code>.env.local</code> (gitignored), Vercel environment variables, and GitHub Actions secrets. No keys are committed; git history was scanned before the repo was made public.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Defence in depth.</strong> Authorisation is enforced per route on the server, not by hiding UI.
+  The middleware handles session context and CSP; the page itself re-checks the session with
+  <code>auth.protect()</code>, so a new route is safe by default the moment it opts in.
+</div>
+
+<h2><span class="num">04</span>Tooling and code quality</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:31%">Technology</th><th style="width:15%">Version</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="tech">ESLint</td>
+      <td class="ver">9.39.5</td>
+      <td class="purpose">Static analysis for JavaScript and TypeScript, run as <code>npm run lint</code> in CI.</td>
+    </tr>
+    <tr>
+      <td class="tech">eslint-config-next</td>
+      <td class="ver">16.4.3</td>
+      <td class="purpose">Next.js rule set covering React hooks, accessibility, and framework-specific patterns.</td>
+    </tr>
+    <tr>
+      <td class="tech">Vitest</td>
+      <td class="ver">5.0.5</td>
+      <td class="purpose">Unit test runner. Tests live in <code>tests/**/*.test.ts</code>, run in a Node environment, and resolve the <code>@</code> alias.</td>
+    </tr>
+    <tr>
+      <td class="tech">Vite</td>
+      <td class="ver">8.3.5</td>
+      <td class="purpose">Transitive engine behind Vitest — handles TypeScript transforms and module resolution for tests.</td>
+    </tr>
+    <tr>
+      <td class="tech">TypeScript compiler</td>
+      <td class="ver">5.9.3</td>
+      <td class="purpose"><code>tsc --noEmit</code> for type checking. The script runs <code>next typegen</code> first because route prop types are generated.</td>
+    </tr>
+    <tr>
+      <td class="tech">@types/node</td>
+      <td class="ver">24.19.2</td>
+      <td class="purpose">Node.js type definitions.</td>
+    </tr>
+    <tr>
+      <td class="tech">@types/react / @types/react-dom</td>
+      <td class="ver">19.x</td>
+      <td class="purpose">React type definitions matching the React 19 runtime.</td>
+    </tr>
+    <tr>
+      <td class="tech">npm audit</td>
+      <td class="ver">11.20.0</td>
+      <td class="purpose">Dependency vulnerability gate in CI at <code>--audit-level=high</code>. Six moderate dev-only advisories are known and accepted.</td>
+    </tr>
+    <tr>
+      <td class="tech">Dependabot</td>
+      <td class="ver">GitHub native</td>
+      <td class="purpose">Weekly npm and GitHub Actions updates, grouped into minor/patch PRs. Major bumps for TypeScript, ESLint, Next.js and React are held back until the tooling supports them.</td>
+    </tr>
+    <tr>
+      <td class="tech">CodeQL</td>
+      <td class="ver">action v4</td>
+      <td class="purpose">GitHub semantic code analysis for JavaScript and TypeScript. Runs on push, on pull requests, and weekly. Skips Dependabot PRs, whose token is read-only.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Quality gates on every pull request</h3>
+<div class="flow">
+  <div class="step"><div class="n">Step 1</div><div class="t">Install</div></div>
+  <div class="arrow">›</div>
+  <div class="step"><div class="n">Step 2</div><div class="t">Lint</div></div>
+  <div class="arrow">›</div>
+  <div class="step"><div class="n">Step 3</div><div class="t">Typecheck</div></div>
+  <div class="arrow">›</div>
+  <div class="step"><div class="n">Step 4</div><div class="t">Unit tests</div></div>
+  <div class="arrow">›</div>
+  <div class="step"><div class="n">Step 5</div><div class="t">Build</div></div>
+  <div class="arrow">›</div>
+  <div class="step"><div class="n">Step 6</div><div class="t">Audit</div></div>
+</div>
+
+<p>
+  The job is named <strong>“Lint, typecheck, test, build”</strong> and is a required status check on
+  <code>main</code>. All six steps run on <code>ubuntu-latest</code> with Node 22, so a clean runner
+  reproduces the same result as a developer machine.
+</p>
+
+<h2 class="pagebreak"><span class="num">05</span>CI/CD and hosting</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:31%">Technology</th><th style="width:15%">Version</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="tech">Git</td>
+      <td class="ver">2.56.0</td>
+      <td class="purpose">Version control. Branches: <code>main</code> (production) and <code>test</code> (preview).</td>
+    </tr>
+    <tr>
+      <td class="tech">GitHub</td>
+      <td class="ver">—</td>
+      <td class="purpose">Public source repository, pull requests, Actions, environments, and the branch ruleset.</td>
+    </tr>
+    <tr>
+      <td class="tech">GitHub Actions</td>
+      <td class="ver">—</td>
+      <td class="purpose">CI and deployment orchestration. Four workflows: <code>ci.yml</code>, <code>codeql.yml</code>, <code>deploy-test.yml</code>, <code>deploy-prod.yml</code>.</td>
+    </tr>
+    <tr>
+      <td class="tech">actions/checkout</td>
+      <td class="ver">v7</td>
+      <td class="purpose">Clones the repository into the runner.</td>
+    </tr>
+    <tr>
+      <td class="tech">actions/setup-node</td>
+      <td class="ver">v7</td>
+      <td class="purpose">Installs Node 22 with npm caching.</td>
+    </tr>
+    <tr>
+      <td class="tech">github/codeql-action</td>
+      <td class="ver">init + analyze @ v4</td>
+      <td class="purpose">Initialises and runs CodeQL, then uploads results to GitHub code scanning.</td>
+    </tr>
+    <tr>
+      <td class="tech">GitHub CLI</td>
+      <td class="ver">2.103.3</td>
+      <td class="purpose">Repository, secrets, environments, ruleset, and workflow management from the terminal.</td>
+    </tr>
+    <tr>
+      <td class="tech">Vercel</td>
+      <td class="ver">—</td>
+      <td class="purpose">Hosting and CDN. Builds the Next.js output and serves Production and Preview environments.</td>
+    </tr>
+    <tr>
+      <td class="tech">Vercel CLI</td>
+      <td class="ver">65.9.0</td>
+      <td class="purpose">Used in CI to <code>pull</code> environment variables, <code>build</code>, and <code>deploy</code>. Also used locally to link the project and manage variables.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Deployment flows</h3>
+
+<table>
+  <thead>
+    <tr><th style="width:22%">Workflow</th><th style="width:26%">Trigger</th><th>What it does</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="tech">CI</td>
+      <td>Push to <code>main</code> / <code>test</code>, all pull requests</td>
+      <td>Install with <code>npm ci</code>, lint, typecheck, unit tests, production build, audit.</td>
+    </tr>
+    <tr>
+      <td class="tech">Deploy to Test</td>
+      <td>Push to <code>test</code>, or manual</td>
+      <td>Pull the Vercel preview environment, build, deploy a preview, then HTTP smoke test the URL.</td>
+    </tr>
+    <tr>
+      <td class="tech">Deploy to Production</td>
+      <td><strong>Manual only</strong> (<code>workflow_dispatch</code>)</td>
+      <td>Pull the production environment, build, deploy with <code>--prod</code>, then smoke test.</td>
+    </tr>
+    <tr>
+      <td class="tech">CodeQL</td>
+      <td>Push, pull request, weekly schedule</td>
+      <td>Static security analysis and upload of results to code scanning.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note warn">
+  <strong>Production is a deliberate human decision.</strong> Merging to <code>main</code> runs CI but does not ship.
+  A release is started from <em>Actions → Deploy to Production → Run workflow</em>. This works on every GitHub plan,
+  including the free tier where required reviewers are unavailable on private repositories.
+</div>
+
+<h3>Branch protection and environments</h3>
+<ul>
+  <li>Ruleset <code>protect-main</code> on <code>main</code>: no deletion, no force-push, required status check, and the branch must be up to date before merging.</li>
+  <li>GitHub environments <code>test</code> and <code>production</code> record deployment history and expose a deployment URL.</li>
+  <li>Deploy jobs self-skip with a notice if <code>VERCEL_TOKEN</code>, <code>VERCEL_ORG_ID</code>, or <code>VERCEL_PROJECT_ID</code> are missing, so CI never fails for lack of hosting credentials.</li>
+  <li>Vercel Deployment Protection is disabled so the pipeline's smoke tests and the public site are reachable; Clerk still guards every private route.</li>
+</ul>
+
+<h2><span class="num">06</span>Environments</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:22%">Environment</th><th style="width:34%">URL</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="tech">Local</td>
+      <td class="mono">http://localhost:3000</td>
+      <td><code>npm run dev</code> with Turbopack; keys from <code>.env.local</code>.</td>
+    </tr>
+    <tr>
+      <td class="tech">Production</td>
+      <td class="mono">dormdash-dusky.vercel.app</td>
+      <td>Vercel production target, deployed only by the manual workflow.</td>
+    </tr>
+    <tr>
+      <td class="tech">Test</td>
+      <td class="mono">Vercel preview URL</td>
+      <td>A unique preview deployment per push to <code>test</code>; the URL is printed in each Actions run.</td>
+    </tr>
+    <tr>
+      <td class="tech">Pull request</td>
+      <td class="mono">Vercel preview URL</td>
+      <td>Per-PR previews when the Vercel GitHub integration is connected.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Environment variables</h3>
+<table>
+  <thead>
+    <tr><th style="width:44%">Variable</th><th>Purpose</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="mono">NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</td><td>Public Clerk key, inlined into the browser bundle.</td></tr>
+    <tr><td class="mono">CLERK_SECRET_KEY</td><td>Server-side Clerk key. Never committed and never exposed to the client.</td></tr>
+    <tr><td class="mono">NEXT_PUBLIC_CLERK_SIGN_IN_URL</td><td>Path of the sign-in page.</td></tr>
+    <tr><td class="mono">NEXT_PUBLIC_CLERK_SIGN_UP_URL</td><td>Path of the sign-up page.</td></tr>
+    <tr><td class="mono">NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL</td><td>Where to land after sign-in when no return URL is given.</td></tr>
+    <tr><td class="mono">NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL</td><td>Where to land after sign-up.</td></tr>
+    <tr><td class="mono">VERCEL_ORG_ID / VERCEL_PROJECT_ID</td><td>GitHub secrets identifying the Vercel project.</td></tr>
+    <tr><td class="mono">VERCEL_TOKEN</td><td>GitHub secret authorising Vercel CLI deploys.</td></tr>
+  </tbody>
+</table>
+
+<h2 class="pagebreak"><span class="num">07</span>Mobile and interface</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:31%">Technology</th><th style="width:15%">Version</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="tech">CSS viewport units &amp; safe areas</td>
+      <td class="ver">native CSS</td>
+      <td class="purpose"><code>env(safe-area-inset-*)</code> padding helpers keep content clear of iPhone notches and Android gesture bars.</td>
+    </tr>
+    <tr>
+      <td class="tech">Next.js viewport export</td>
+      <td class="ver">Viewport API</td>
+      <td class="purpose">Sets <code>width=device-width</code>, <code>initial-scale=1</code>, and <code>viewport-fit=cover</code>.</td>
+    </tr>
+    <tr>
+      <td class="tech">Responsive layout</td>
+      <td class="ver">Tailwind breakpoints</td>
+      <td class="purpose">Single-column mobile layout that expands to a multi-column desktop layout; a bottom tab bar provides thumb-reachable navigation on small screens.</td>
+    </tr>
+    <tr>
+      <td class="tech">PWA manifest</td>
+      <td class="ver">metadata route</td>
+      <td class="purpose">App name, theme colour, display mode, and icons, enabling “Add to Home Screen” on iOS and Android.</td>
+    </tr>
+    <tr>
+      <td class="tech">Accessibility</td>
+      <td class="ver">eslint-config-next</td>
+      <td class="purpose">ARIA labels, keyboard focus styles, and semantic landmarks, with a CI lint gate on accessibility rules.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2><span class="num">08</span>Local development toolchain</h2>
+
+<table>
+  <thead>
+    <tr><th style="width:31%">Tool</th><th style="width:15%">Version</th><th>Role</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="tech">Node.js</td><td class="ver">26.13.0</td><td class="purpose">Local JavaScript runtime. CI uses the Node 22 LTS line.</td></tr>
+    <tr><td class="tech">npm</td><td class="ver">11.20.0</td><td class="purpose">Package manager and script runner; lockfile committed for reproducible installs.</td></tr>
+    <tr><td class="tech">Git</td><td class="ver">2.56.0</td><td class="purpose">Version control and branch workflow.</td></tr>
+    <tr><td class="tech">GitHub CLI</td><td class="ver">2.103.3</td><td class="purpose">Authenticates as <code>rselvak</code>; manages the repo, secrets, and workflows.</td></tr>
+    <tr><td class="tech">Vercel CLI</td><td class="ver">65.9.0</td><td class="purpose">Project linking, environment variables, and manual deploys. Invoked through <code>npx</code> so no global install is required.</td></tr>
+  </tbody>
+</table>
+
+<h3>NPM scripts</h3>
+<table>
+  <thead>
+    <tr><th style="width:22%">Script</th><th>Command</th></tr>
+  </thead>
+  <tbody>
+    <tr><td class="mono">npm run dev</td><td class="mono">next dev</td></tr>
+    <tr><td class="mono">npm run build</td><td class="mono">next build</td></tr>
+    <tr><td class="mono">npm run start</td><td class="mono">next start</td></tr>
+    <tr><td class="mono">npm run lint</td><td class="mono">eslint</td></tr>
+    <tr><td class="mono">npm run typecheck</td><td class="mono">next typegen &amp;&amp; tsc --noEmit</td></tr>
+    <tr><td class="mono">npm test</td><td class="mono">vitest run</td></tr>
+    <tr><td class="mono">npm run test:watch</td><td class="mono">vitest</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="num">09</span>Current status and known gaps</h2>
+
+<div class="grid">
+  <div class="card">
+    <h4>Working end to end</h4>
+    <p>
+      <span class="tick">✓</span> Login and protected routes<br />
+      <span class="tick">✓</span> Responsive mobile UI and PWA manifest<br />
+      <span class="tick">✓</span> CI on every pull request<br />
+      <span class="tick">✓</span> Test and production deploys with smoke tests<br />
+      <span class="tick">✓</span> Manual release gate and branch protection
+    </p>
+  </div>
+  <div class="card">
+    <h4>Not yet in place</h4>
+    <p>
+      <strong>Database</strong> — PostgreSQL and Prisma are planned but not wired up.<br />
+      <strong>Clerk production keys</strong> — the live site still runs development keys.<br />
+      <strong>PNG icons</strong> — an SVG icon exists; iOS needs 192/512 PNG and an apple-touch-icon.<br />
+      <strong>Input validation</strong> — Zod is intended for server-side schema validation.
+    </p>
+  </div>
+</div>
+
+<div class="note">
+  <strong>Upgrade policy.</strong> Next.js, React, TypeScript, and ESLint majors are treated as planned
+  migrations rather than automatic pull requests. Dependabot is configured to raise only minor and patch
+  updates for them, because a major bump can break <code>typescript-eslint</code> or
+  <code>eslint-config-next</code> before those tools catch up.
+</div>
+
+<p class="footer-note">
+  DormDash — Technology Reference · Generated 31 October 2026 · Repository:
+  github.com/rselvak/dormdash · Versions reflect the committed lockfile at the time of writing.
+</p>
+
+</body>
+</html>

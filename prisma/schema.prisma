@@ -1,0 +1,55 @@
+// DormDash data model.
+//
+// Authentication lives in Clerk; this database stores the registration profile
+// that Clerk does not model: guardians and their students.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Parent {
+  id String @id @default(cuid())
+
+  // Clerk's user id is the link between the identity provider and this record.
+  clerkUserId String @unique
+
+  // Parent 1 is mandatory and their email is the login id.
+  name  String
+  email String @unique
+  phone String
+
+  // Parent 2 is optional. All three fields are filled together or not at all.
+  parent2Name  String?
+  parent2Phone String?
+  parent2Email String?
+
+  students  Student[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Student {
+  id       String @id @default(cuid())
+  parentId String
+  parent   Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  name    String
+  email   String
+  phone   String?
+  college String
+  dorm    String?
+  year    Int?
+  major   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A parent cannot register the same student twice.
+  @@unique([parentId, email])
+  @@index([parentId])
+}
