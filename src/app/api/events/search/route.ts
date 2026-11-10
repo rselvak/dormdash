@@ -39,24 +39,22 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "You can only search colleges associated with your students" }, { status: 403 });
     }
     // Without an explicit complete date range, historical events are never returned.
-    const startsAt = q.start && q.end
-      ? { gte: new Date(q.start + "T00:00:00-08:00"), lt: new Date(new Date(q.end + "T12:00:00Z").getTime() + 36 * 60 * 60 * 1000) }
-      : { gte: new Date() };
-    // Date-only search is interpreted as Pacific calendar dates, including DST.
-    if (q.start && q.end) {
-      const start = new Date(q.start + "T12:00:00Z");
-      const end = new Date(q.end + "T12:00:00Z");
-      const pacificMidnight = (day: Date) => {
-        const date = day.toISOString().slice(0, 10);
-        const midnightUtc = new Date(date + "T00:00:00Z");
-        const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hour: "2-digit", hourCycle: "h23", timeZoneName: "shortOffset" }).formatToParts(midnightUtc);
-        const offset = parts.find(p => p.type === "timeZoneName")?.value || "GMT-8";
-        const hours = Number(offset.replace("GMT", "")) || 0;
-        return new Date(midnightUtc.getTime() - hours * 3600000);
-      };
-      startsAt.gte = pacificMidnight(start);
-      startsAt.lt = pacificMidnight(new Date(end.getTime() + 86400000));
+    // Interpret selected calendar dates in California's time zone.
+    function pacificMidnight(date: string): Date {
+      const probe = new Date(date + "T08:00:00Z");
+      const offset = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Los_Angeles", timeZoneName: "shortOffset",
+      }).formatToParts(probe).find(part => part.type === "timeZoneName")?.value ?? "GMT-8";
+      const match = /^GMT([+-])(\\d{1,2})(?::(\\d{2}))?$/.exec(offset);
+      const minutes = match ? (match[1] === "+" ? 1 : -1) * (Number(match[2]) * 60 + Number(match[3] ?? 0)) : -480;
+      return new Date(new Date(date + "T00:00:00Z").getTime() - minutes * 60000);
     }
+    const startsAt = q.start && q.end
+      ? {
+          gte: pacificMidnight(q.start),
+          lt: pacificMidnight(new Date(new Date(q.end + "T00:00:00Z").getTime() + 86400000).toISOString().slice(0, 10)),
+        }
+      : { gte: new Date() };
     const events = await prisma.event.findMany({
       where: {
         status: "PUBLISHED",
