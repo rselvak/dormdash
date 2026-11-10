@@ -12,7 +12,7 @@ const types: {value:EventType;label:string}[] = [
 ];
 const colors:Record<EventType,string>={COLLEGE_PICKUP:"bg-blue-100 text-blue-900",COLLEGE_DROP_OFF:"bg-emerald-100 text-emerald-900",CARPOOL:"bg-violet-100 text-violet-900",VANPOOL:"bg-orange-100 text-orange-900",BUSPOOL:"bg-cyan-100 text-cyan-900",PACKAGE_DELIVERY:"bg-amber-100 text-amber-900",ANNOUNCEMENT:"bg-pink-100 text-pink-900"};
 const localDate=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
-const today=()=>localDate(new Date());
+
 function isoWithOffset(local:string) {
   const date=new Date(local);
   if(Number.isNaN(date.getTime())) throw new Error("Invalid date or time");
@@ -21,9 +21,20 @@ function isoWithOffset(local:string) {
   return local+":00"+sign+String(Math.floor(Math.abs(offset)/60)).padStart(2,"0")+":"+String(Math.abs(offset)%60).padStart(2,"0");
 }
 
+async function readApi(response:Response) {
+  const contentType=response.headers.get("content-type")||"";
+  if (!contentType.includes("application/json")) {
+    throw new Error(response.status===404 ? "Events API was not found. Restart the development server." : `Events service returned an unexpected response (HTTP ${response.status}). Check your Next.js terminal for errors.`);
+  }
+  const data=await response.json();
+  if (!response.ok) throw new Error(data.error||`Events request failed (HTTP ${response.status})`);
+  return data;
+}
+
 export function EventsCalendar() {
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
   const [events,setEvents]=useState<Event[]>([]);
+  const [published,setPublished]=useState<Event[]>([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
   const [selected,setSelected]=useState<string|null>(null);
@@ -44,9 +55,11 @@ export function EventsCalendar() {
     try {
       const params=new URLSearchParams({start:monthStart.toISOString(),end:nextMonth.toISOString()});
       const res=await fetch("/api/events?"+params,{cache:"no-store"});
-      const body=await res.json();
-      if(!res.ok) throw new Error(body.error||"Could not load events");
+      const body=await readApi(res);
       setEvents(body.events);
+      const publishedResponse=await fetch("/api/events?published=upcoming",{cache:"no-store"});
+      const publishedBody=await readApi(publishedResponse);
+      setPublished(publishedBody.events);
     } catch(e) {setError(e instanceof Error?e.message:"Could not load events");}
     finally {setLoading(false);}
   },[month.getFullYear(),month.getMonth()]);
@@ -61,7 +74,9 @@ export function EventsCalendar() {
   },[events]);
   const cells=Array.from({length:Math.ceil((monthStart.getDay()+new Date(month.getFullYear(),month.getMonth()+1,0).getDate())/7)*7},(_,i)=>i-monthStart.getDay()+1);
   function open(day:number) {
-    const d=localDate(new Date(month.getFullYear(),month.getMonth(),day));
+    openForDate(localDate(new Date(month.getFullYear(),month.getMonth(),day)));
+  }
+  function openForDate(d:string) {
     setSelected(d);setDateTime(d+"T09:00");setDueAt("");setName("");setPaymentRequired(false);setTotalCost("");setIndividualCost("");setStatus("DRAFT");setType("COLLEGE_PICKUP");setMaxParticipants("4");setError("");
   }
   async function save(e:React.FormEvent) {
@@ -76,8 +91,7 @@ export function EventsCalendar() {
         individualCostCents:paymentRequired&&individualCost!==""?Math.round(Number(individualCost)*100):null,
       };
       const res=await fetch("/api/events",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-      const result=await res.json();
-      if(!res.ok) throw new Error(result.error+(result.details?" — "+JSON.stringify(result.details.fieldErrors):""));
+      await readApi(res);
       setSelected(null);await load();
     }catch(e){setError(e instanceof Error?e.message:"Unable to create event");}
     finally{setSaving(false);}
@@ -85,7 +99,8 @@ export function EventsCalendar() {
   return <section className="mt-8 rounded-2xl border border-border bg-card p-4 sm:p-6" aria-label="Shared events calendar">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-xl font-semibold">Family travel calendar</h2><p className="text-sm text-muted">Published events are shared. Your drafts are private.</p></div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground" onClick={()=>{const now=new Date();setMonth(new Date(now.getFullYear(),now.getMonth(),1));openForDate(localDate(now));}}>+ Create Event</button>
         <button type="button" className="rounded-lg border border-border px-3 py-2 text-sm" onClick={()=>setMonth(new Date(new Date().getFullYear(),new Date().getMonth(),1))}>Today</button>
         <button type="button" aria-label="Previous month" className="rounded-lg border border-border px-3 py-2" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))}>‹</button>
         <button type="button" aria-label="Next month" className="rounded-lg border border-border px-3 py-2" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))}>›</button>
@@ -104,6 +119,11 @@ export function EventsCalendar() {
     </div>
     {loading&&<p className="mt-3 text-sm text-muted">Loading events…</p>}
     {error&&<p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
+    <section className="mt-8" aria-label="Upcoming published events">
+      <h3 className="text-lg font-semibold">Upcoming published events</h3>
+      {published.length===0&&!loading&&!error&&<p className="mt-2 text-sm text-muted">No upcoming published events yet.</p>}
+      <div className="mt-3 grid gap-2">{published.map(ev=><article key={ev.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border p-3"><div><p className="font-medium">{ev.name}</p><p className="text-xs text-muted">{types.find(t=>t.value===ev.type)?.label} · {new Date(ev.startsAt).toLocaleString()}</p></div><span className={"rounded px-2 py-1 text-xs "+colors[ev.type]}>Published</span></article>)}</div>
+    </section>
     {selected&&<div className="mt-6 rounded-xl border border-border p-4">
       <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Create event · {selected}</h3><button type="button" onClick={()=>setSelected(null)} aria-label="Close event form">✕</button></div>
       <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
