@@ -28,6 +28,7 @@ model Parent {
   parent2Phone String?
   parent2Email String?
 
+  participations EventParticipant[]
   events    Event[]
   students  Student[]
   createdAt DateTime  @default(now())
@@ -47,6 +48,7 @@ model Student {
   year    Int?
   major   String
 
+  participations EventParticipant[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -86,9 +88,24 @@ model Event {
   individualCostCents Int?
   maxParticipants Int
 
+  participants EventParticipant[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, startsAt])
   @@index([parentId, status])
+}
+
+model EventParticipant {
+  id String @id @default(cuid())
+  eventId String
+  parentId String
+  studentId String?
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  joinedAt DateTime @default(now())
+  @@unique([eventId, parentId])
+  @@index([eventId])
+  @@index([parentId])
 }
