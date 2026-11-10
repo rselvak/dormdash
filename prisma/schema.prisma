@@ -28,6 +28,7 @@ model Parent {
   parent2Phone String?
   parent2Email String?
 
+  events    Event[]
   students  Student[]
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -52,4 +53,42 @@ model Student {
   // A parent cannot register the same student twice.
   @@unique([parentId, email])
   @@index([parentId])
+}
+
+enum EventType {
+  COLLEGE_PICKUP
+  COLLEGE_DROP_OFF
+  CARPOOL
+  VANPOOL
+  BUSPOOL
+  PACKAGE_DELIVERY
+  ANNOUNCEMENT
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Event {
+  id String @id @default(cuid())
+  parentId String
+  parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  name String
+  startsAt DateTime
+  timeZone String @default("America/Los_Angeles")
+  dueAt DateTime?
+  type EventType
+  status EventStatus @default(DRAFT)
+  paymentRequired Boolean @default(false)
+  totalCostCents Int?
+  individualCostCents Int?
+  maxParticipants Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, startsAt])
+  @@index([parentId, status])
 }
