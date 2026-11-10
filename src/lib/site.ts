@@ -1,6 +1,6 @@
 export const siteConfig = {
-  name: "My App",
-  shortName: "MyApp",
+  name: "Dorm Dash",
+  shortName: "Dorm Dash",
   description:
     "A secure, mobile-first web app built with Next.js, TypeScript, and Clerk.",
 } as const;

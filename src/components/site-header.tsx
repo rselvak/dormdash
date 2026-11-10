@@ -18,7 +18,7 @@ export function SiteHeader() {
             aria-hidden
             className="grid size-7 place-items-center rounded-lg bg-accent text-sm font-bold text-accent-foreground"
           >
-            M
+            D
           </span>
           <span className="text-base tracking-tight">{siteConfig.name}</span>
         </Link>
@@ -34,7 +34,7 @@ export function SiteHeader() {
             href="/dashboard"
             className="text-muted transition-colors hover:text-foreground"
           >
-            Dashboard
+            Search
           </Link>
         </nav>
 
