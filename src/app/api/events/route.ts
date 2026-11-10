@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({error:"Invalid event",details:z.flattenError(parsed.error)},{status:400});
   const prisma = getPrisma();
-  const parent = await prisma.parent.findUnique({where:{clerkUserId:userId},select:{id:true}});
+  const parent = await prisma.parent.findUnique({where:{clerkUserId:userId},select:{id:true,students:{select:{college:true}}}});
   if (!parent) return NextResponse.json({error:"Complete parent registration first"},{status:403});
   const v=parsed.data;
   if(!parent.students.some(s=>collegeKey(s.college)===collegeKey(v.college))) return NextResponse.json({error:"Select a college registered to one of your students"},{status:403});
