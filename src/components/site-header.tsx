@@ -48,9 +48,11 @@ export function SiteHeader() {
             </Link>
           </Show>
           <Show when="signed-in">
-            <UserButton
-              appearance={{ elements: { avatarBox: "size-9" } }}
-            />
+            <UserButton appearance={{ elements: { avatarBox: "size-9" } }}>
+              <UserButton.MenuItems>
+                <UserButton.Link label="My Profile" labelIcon={<span aria-hidden>👤</span>} href="/profile" />
+              </UserButton.MenuItems>
+            </UserButton>
           </Show>
         </div>
       </div>
