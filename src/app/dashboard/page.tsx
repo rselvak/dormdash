@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { getRegistration, type Registration } from "@/lib/registrations";
 import { initials } from "@/lib/utils";
+import { EventsCalendar } from "@/components/events-calendar";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -108,6 +109,8 @@ export default async function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {registration && <EventsCalendar />}
 
       {registration ? (
         <>
