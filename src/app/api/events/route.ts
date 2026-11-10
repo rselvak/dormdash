@@ -22,6 +22,7 @@ const schema = z.object({
 });
 
 export async function GET(request: Request) {
+  try {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({error:"Unauthorized"},{status:401});
   const prisma = getPrisma();
@@ -31,19 +32,25 @@ export async function GET(request: Request) {
   const start = url.searchParams.get("start");
   const end = url.searchParams.get("end");
   if ((start && Number.isNaN(Date.parse(start))) || (end && Number.isNaN(Date.parse(end)))) return NextResponse.json({error:"Invalid date range"},{status:400});
+  const publishedOnly = url.searchParams.get("published") === "upcoming";
   const events = await prisma.event.findMany({
     where:{
-      OR:[{status:"PUBLISHED"},{parentId:parent.id}],
-      ...(start || end ? {startsAt:{...(start?{gte:new Date(start)}:{}),...(end?{lt:new Date(end)}:{})}} : {}),
+      ...(publishedOnly ? {status:"PUBLISHED" as const, startsAt:{gte:new Date()}} : {OR:[{status:"PUBLISHED" as const},{parentId:parent.id}]}),
+      ...(!publishedOnly && (start || end) ? {startsAt:{...(start?{gte:new Date(start)}:{}),...(end?{lt:new Date(end)}:{})}} : {}),
     },
     orderBy:{startsAt:"asc"},
     take:500,
     select:{id:true,parentId:true,name:true,startsAt:true,timeZone:true,dueAt:true,type:true,status:true,paymentRequired:true,totalCostCents:true,individualCostCents:true,maxParticipants:true},
   });
   return NextResponse.json({events:events.map(e=>({...e,isOwner:e.parentId===parent.id,parentId:undefined}))});
+  } catch (error) {
+    console.error("Failed to list events", error);
+    return NextResponse.json({error:"Unable to load events. Check database migrations and server logs."},{status:500});
+  }
 }
 
 export async function POST(request: Request) {
+  try {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({error:"Unauthorized"},{status:401});
   let body: unknown;
@@ -62,4 +69,8 @@ export async function POST(request: Request) {
     maxParticipants:v.maxParticipants,
   }});
   return NextResponse.json({event},{status:201});
+  } catch (error) {
+    console.error("Failed to create event", error);
+    return NextResponse.json({error:"Unable to create event. Check database migrations and server logs."},{status:500});
+  }
 }
