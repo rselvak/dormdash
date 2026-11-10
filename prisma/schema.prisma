@@ -78,6 +78,8 @@ model Event {
   parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
 
   name String
+  college String?
+  collegeKey String?
   startsAt DateTime
   timeZone String @default("America/Los_Angeles")
   dueAt DateTime?
@@ -92,6 +94,7 @@ model Event {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([collegeKey, status, startsAt])
   @@index([status, startsAt])
   @@index([parentId, status])
 }
