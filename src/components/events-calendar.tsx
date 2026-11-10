@@ -60,7 +60,6 @@ export function EventsCalendar() {
   const [maxParticipants,setMaxParticipants]=useState("4");
   const [now,setNow]=useState(()=>Date.now());
   const monthStart=new Date(month.getFullYear(),month.getMonth(),1);
-  const nextMonth=new Date(month.getFullYear(),month.getMonth()+1,1);
   const load=useCallback(async()=>{
     setLoading(true);setError("");
     try {
