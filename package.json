@@ -17,7 +17,11 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "dev:setup": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev/setup.ps1",
+    "dev:check": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev/check.ps1",
+    "dev:db:status": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev/db-status.ps1",
+    "dev:db:migrate": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/dev/db-migrate.ps1"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.23",
