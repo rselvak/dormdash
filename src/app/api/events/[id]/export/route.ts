@@ -2,17 +2,18 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getPrisma } from "@/lib/db";
+import { collegeKey } from "@/lib/college";
 
 type Context={params:Promise<{id:string}>};
 export async function GET(_request:Request,{params}:Context) {
   try {
     const {userId}=await auth();
     if(!userId) return NextResponse.json({error:"Unauthorized"},{status:401});
-    const parent=await getPrisma().parent.findUnique({where:{clerkUserId:userId},select:{id:true}});
+    const parent=await getPrisma().parent.findUnique({where:{clerkUserId:userId},select:{id:true,students:{select:{college:true}}}});
     if(!parent) return NextResponse.json({error:"Complete registration first"},{status:403});
     const {id}=await params;
     const event=await getPrisma().event.findUnique({where:{id},include:{participants:{orderBy:{joinedAt:"asc"},include:{parent:true,student:true}}}});
-    if(!event || (event.status!=="PUBLISHED" && event.parentId!==parent.id)) return NextResponse.json({error:"Event not found"},{status:404});
+    if(!event || (event.parentId!==parent.id && (event.status!=="PUBLISHED" || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)))) return NextResponse.json({error:"Event not found"},{status:404});
     // Export is explicitly available to every registered user who can view the event.
     const workbook=new ExcelJS.Workbook();
     const sheet=workbook.addWorksheet("Participants");
