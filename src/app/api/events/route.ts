@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     take:500,
     select:{id:true,parentId:true,name:true,college:true,startsAt:true,timeZone:true,dueAt:true,type:true,status:true,paymentRequired:true,totalCostCents:true,individualCostCents:true,maxParticipants:true,participants:{select:{parentId:true}}},
   });
-  return NextResponse.json({events:events.map(e=>({id:e.id,name:e.name,college:e.college,startsAt:e.startsAt,dueAt:e.dueAt,type:e.type,status:e.status,maxParticipants:e.maxParticipants,paymentRequired:e.paymentRequired,totalCostCents:e.totalCostCents,individualCostCents:e.individualCostCents,isOwner:e.parentId===parent.id,isJoined:e.participants.some(p=>p.parentId===parent.id),participantCount:e.participants.length}))});
+  return NextResponse.json({colleges:[...new Set(parent.students.map(s=>s.college.trim()))],events:events.map(e=>({id:e.id,name:e.name,college:e.college,startsAt:e.startsAt,dueAt:e.dueAt,type:e.type,status:e.status,maxParticipants:e.maxParticipants,paymentRequired:e.paymentRequired,totalCostCents:e.totalCostCents,individualCostCents:e.individualCostCents,isOwner:e.parentId===parent.id,isJoined:e.participants.some(p=>p.parentId===parent.id),participantCount:e.participants.length}))});
   } catch (error) {
     console.error("Failed to list events", error);
     return NextResponse.json({error:"Unable to load events. Check database migrations and server logs."},{status:500});
