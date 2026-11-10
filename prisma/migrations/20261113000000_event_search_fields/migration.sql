@@ -1,0 +1,1 @@
+ALTER TABLE "Event" ADD COLUMN "dorm" TEXT, ADD COLUMN "major" TEXT;
