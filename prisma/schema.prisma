@@ -80,6 +80,8 @@ model Event {
   name String
   college String?
   collegeKey String?
+  dorm String?
+  major String?
   startsAt DateTime
   timeZone String @default("America/Los_Angeles")
   dueAt DateTime?
