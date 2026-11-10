@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       const offset = new Intl.DateTimeFormat("en-US", {
         timeZone: "America/Los_Angeles", timeZoneName: "shortOffset",
       }).formatToParts(probe).find(part => part.type === "timeZoneName")?.value ?? "GMT-8";
-      const match = /^GMT([+-])(\\d{1,2})(?::(\\d{2}))?$/.exec(offset);
+      const match = /^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(offset);
       const minutes = match ? (match[1] === "+" ? 1 : -1) * (Number(match[2]) * 60 + Number(match[3] ?? 0)) : -480;
       return new Date(new Date(date + "T00:00:00Z").getTime() - minutes * 60000);
     }
