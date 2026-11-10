@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/db";
+import { collegeKey } from "@/lib/college";
 import { z } from "zod";
 
 type Context={params:Promise<{id:string}>};
@@ -9,7 +10,7 @@ export async function POST(request:Request,{params}:Context) {
   try {
     const {userId}=await auth();
     if(!userId) return NextResponse.json({error:"Unauthorized"},{status:401});
-    const parent=await getPrisma().parent.findUnique({where:{clerkUserId:userId},select:{id:true}});
+    const parent=await getPrisma().parent.findUnique({where:{clerkUserId:userId},select:{id:true,students:{select:{college:true}}}});
     if(!parent) return NextResponse.json({error:"Complete registration first"},{status:403});
     const parsed=schema.safeParse(await request.json());
     if(!parsed.success) return NextResponse.json({error:"Invalid student selection"},{status:400});
@@ -18,7 +19,7 @@ export async function POST(request:Request,{params}:Context) {
       await tx.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${id} FOR UPDATE`;
       const event=await tx.event.findUnique({where:{id},include:{_count:{select:{participants:true}}}});
       if(!event) return {status:404,error:"Event not found"};
-      if(event.status!=="PUBLISHED" && event.parentId!==parent.id) return {status:404,error:"Event not found"};
+      if(event.status!=="PUBLISHED" || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)) return {status:404,error:"Event not found"};
       const existing=await tx.eventParticipant.findUnique({where:{eventId_parentId:{eventId:id,parentId:parent.id}}});
       if(existing) return {status:409,error:"You have already joined"};
       if(event.dueAt && event.dueAt.getTime()<Date.now()) return {status:409,error:"Joining deadline has passed"};
@@ -27,6 +28,8 @@ export async function POST(request:Request,{params}:Context) {
       if(parsed.data.studentId) {
         const student=await tx.student.findFirst({where:{id:parsed.data.studentId,parentId:parent.id},select:{id:true}});
         if(!student) return {status:400,error:"Select one of your registered students"};
+        const eligible=await tx.student.findFirst({where:{id:parsed.data.studentId,parentId:parent.id,college:{not:""}},select:{college:true}});
+        if(!eligible || collegeKey(eligible.college)!==event.collegeKey) return {status:400,error:"Student must attend the event college"};
       }
       await tx.eventParticipant.create({data:{eventId:id,parentId:parent.id,studentId:parsed.data.studentId}});
       return {status:201};
