@@ -22,7 +22,7 @@ const items = [
   },
   {
     href: "/dashboard",
-    label: "Dashboard",
+    label: "Search",
     icon: (
       <path
         d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"

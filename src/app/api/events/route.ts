@@ -8,6 +8,8 @@ const eventTypes = ["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUS
 const schema = z.object({
   name: z.string().trim().min(1).max(160),
   college: z.string().trim().min(1).max(200),
+  dorm: z.string().trim().max(120).nullable().optional(),
+  major: z.string().trim().max(120).nullable().optional(),
   startsAt: z.iso.datetime({ offset: true }),
   dueAt: z.iso.datetime({ offset: true }).nullable().optional(),
   timeZone: z.string().min(1).max(100).default("America/Los_Angeles"),
@@ -43,9 +45,9 @@ export async function GET(request: Request) {
     },
     orderBy:{startsAt:"asc"},
     take:500,
-    select:{id:true,parentId:true,name:true,college:true,startsAt:true,timeZone:true,dueAt:true,type:true,status:true,paymentRequired:true,totalCostCents:true,individualCostCents:true,maxParticipants:true,participants:{select:{parentId:true}}},
+    select:{id:true,parentId:true,name:true,college:true,dorm:true,major:true,startsAt:true,timeZone:true,dueAt:true,type:true,status:true,paymentRequired:true,totalCostCents:true,individualCostCents:true,maxParticipants:true,participants:{select:{parentId:true}}},
   });
-  return NextResponse.json({colleges:[...new Set(parent.students.map(s=>s.college.trim()))],events:events.map(e=>({id:e.id,name:e.name,college:e.college,startsAt:e.startsAt,dueAt:e.dueAt,type:e.type,status:e.status,maxParticipants:e.maxParticipants,paymentRequired:e.paymentRequired,totalCostCents:e.totalCostCents,individualCostCents:e.individualCostCents,isOwner:e.parentId===parent.id,isJoined:e.participants.some(p=>p.parentId===parent.id),participantCount:e.participants.length}))});
+  return NextResponse.json({colleges:[...new Set(parent.students.map(s=>s.college.trim()))],events:events.map(e=>({id:e.id,name:e.name,college:e.college,dorm:e.dorm,major:e.major,startsAt:e.startsAt,dueAt:e.dueAt,type:e.type,status:e.status,maxParticipants:e.maxParticipants,paymentRequired:e.paymentRequired,totalCostCents:e.totalCostCents,individualCostCents:e.individualCostCents,isOwner:e.parentId===parent.id,isJoined:e.participants.some(p=>p.parentId===parent.id),participantCount:e.participants.length}))});
   } catch (error) {
     console.error("Failed to list events", error);
     return NextResponse.json({error:"Unable to load events. Check database migrations and server logs."},{status:500});
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
   const v=parsed.data;
   if(!parent.students.some(s=>collegeKey(s.college)===collegeKey(v.college))) return NextResponse.json({error:"Select a college registered to one of your students"},{status:403});
   const event=await prisma.event.create({data:{
-    parentId:parent.id,name:v.name,college:v.college,collegeKey:collegeKey(v.college),startsAt:new Date(v.startsAt),dueAt:v.dueAt?new Date(v.dueAt):null,
+    parentId:parent.id,name:v.name,college:v.college,collegeKey:collegeKey(v.college),dorm:v.dorm||null,major:v.major||null,startsAt:new Date(v.startsAt),dueAt:v.dueAt?new Date(v.dueAt):null,
     timeZone:v.timeZone,type:v.type,status:v.status,paymentRequired:v.paymentRequired,
     totalCostCents:v.paymentRequired?(v.totalCostCents??null):null,
     individualCostCents:v.paymentRequired?(v.individualCostCents??null):null,
