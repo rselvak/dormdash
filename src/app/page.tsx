@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Show } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import { EventsCalendar } from "@/components/events-calendar";
 
 const features = [
   {
@@ -23,7 +25,15 @@ const checklist = [
   "Dependency and secret scanning in CI",
 ];
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+  if (userId) {
+    return <main className="mx-auto w-full max-w-5xl px-4 py-8">
+      <h1 className="text-2xl font-semibold">Home</h1>
+      <p className="mt-1 text-sm text-muted">Plan trips, publish events, and discover rides shared by other parents.</p>
+      <EventsCalendar />
+    </main>;
+  }
   return (
     <div className="mx-auto w-full max-w-5xl px-4">
       <section className="flex flex-col items-start gap-6 py-14 sm:py-20">

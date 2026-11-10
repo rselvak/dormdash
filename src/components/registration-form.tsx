@@ -192,7 +192,7 @@ export function RegistrationForm({
     // A full navigation guarantees the server sees Clerk's fresh session
     // cookies after finalize() and renders the saved registration.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.assign("/dashboard");
+    window.location.assign("/");
   }
 
   async function saveRegistration(data: RegistrationInput) {
