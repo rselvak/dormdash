@@ -1,0 +1,65 @@
+import { auth } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getPrisma } from "@/lib/db";
+
+const eventTypes = ["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUSPOOL","PACKAGE_DELIVERY","ANNOUNCEMENT"] as const;
+const schema = z.object({
+  name: z.string().trim().min(1).max(160),
+  startsAt: z.iso.datetime({ offset: true }),
+  dueAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  timeZone: z.string().min(1).max(100).default("America/Los_Angeles"),
+  type: z.enum(eventTypes),
+  status: z.enum(["DRAFT","PUBLISHED"]).default("DRAFT"),
+  paymentRequired: z.boolean().default(false),
+  totalCostCents: z.number().int().nonnegative().nullable().optional(),
+  individualCostCents: z.number().int().nonnegative().nullable().optional(),
+  maxParticipants: z.number().int().positive().max(10000),
+}).superRefine((v, ctx) => {
+  if (v.dueAt && new Date(v.dueAt) > new Date(v.startsAt)) ctx.addIssue({code:"custom",path:["dueAt"],message:"Due date cannot be after event start"});
+  if (!v.paymentRequired && (v.totalCostCents != null || v.individualCostCents != null)) ctx.addIssue({code:"custom",path:["paymentRequired"],message:"Costs require payment enabled"});
+  if (v.paymentRequired && v.totalCostCents == null && v.individualCostCents == null) ctx.addIssue({code:"custom",path:["totalCostCents"],message:"Provide a total or individual cost"});
+});
+
+export async function GET(request: Request) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({error:"Unauthorized"},{status:401});
+  const prisma = getPrisma();
+  const parent = await prisma.parent.findUnique({where:{clerkUserId:userId},select:{id:true}});
+  if (!parent) return NextResponse.json({error:"Complete parent registration first"},{status:403});
+  const url = new URL(request.url);
+  const start = url.searchParams.get("start");
+  const end = url.searchParams.get("end");
+  if ((start && Number.isNaN(Date.parse(start))) || (end && Number.isNaN(Date.parse(end)))) return NextResponse.json({error:"Invalid date range"},{status:400});
+  const events = await prisma.event.findMany({
+    where:{
+      OR:[{status:"PUBLISHED"},{parentId:parent.id}],
+      ...(start || end ? {startsAt:{...(start?{gte:new Date(start)}:{}),...(end?{lt:new Date(end)}:{})}} : {}),
+    },
+    orderBy:{startsAt:"asc"},
+    take:500,
+    select:{id:true,parentId:true,name:true,startsAt:true,timeZone:true,dueAt:true,type:true,status:true,paymentRequired:true,totalCostCents:true,individualCostCents:true,maxParticipants:true},
+  });
+  return NextResponse.json({events:events.map(e=>({...e,isOwner:e.parentId===parent.id,parentId:undefined}))});
+}
+
+export async function POST(request: Request) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({error:"Unauthorized"},{status:401});
+  let body: unknown;
+  try { body = await request.json(); } catch { return NextResponse.json({error:"Invalid JSON"},{status:400}); }
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({error:"Invalid event",details:z.flattenError(parsed.error)},{status:400});
+  const prisma = getPrisma();
+  const parent = await prisma.parent.findUnique({where:{clerkUserId:userId},select:{id:true}});
+  if (!parent) return NextResponse.json({error:"Complete parent registration first"},{status:403});
+  const v=parsed.data;
+  const event=await prisma.event.create({data:{
+    parentId:parent.id,name:v.name,startsAt:new Date(v.startsAt),dueAt:v.dueAt?new Date(v.dueAt):null,
+    timeZone:v.timeZone,type:v.type,status:v.status,paymentRequired:v.paymentRequired,
+    totalCostCents:v.paymentRequired?(v.totalCostCents??null):null,
+    individualCostCents:v.paymentRequired?(v.individualCostCents??null):null,
+    maxParticipants:v.maxParticipants,
+  }});
+  return NextResponse.json({event},{status:201});
+}
