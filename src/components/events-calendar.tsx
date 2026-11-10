@@ -61,12 +61,12 @@ export function EventsCalendar() {
   const [now,setNow]=useState(()=>Date.now());
   const monthStart=new Date(month.getFullYear(),month.getMonth(),1);
   const nextMonth=new Date(month.getFullYear(),month.getMonth()+1,1);
-  const monthStartIso=monthStart.toISOString();
-  const nextMonthIso=nextMonth.toISOString();
   const load=useCallback(async()=>{
     setLoading(true);setError("");
     try {
-      const params=new URLSearchParams({start:monthStartIso,end:nextMonthIso});
+      const start=new Date(month.getFullYear(),month.getMonth(),1).toISOString();
+      const end=new Date(month.getFullYear(),month.getMonth()+1,1).toISOString();
+      const params=new URLSearchParams({start,end});
       const res=await fetch("/api/events?"+params,{cache:"no-store"});
       const body=await readApi(res);
       setEvents(body.events);
@@ -77,7 +77,7 @@ export function EventsCalendar() {
       setPublished(publishedBody.events);
     } catch(e) {setError(e instanceof Error?e.message:"Could not load events");}
     finally {setLoading(false);}
-  },[monthStartIso,nextMonthIso]);
+  },[month]);
   useEffect(()=>{
     // Schedule asynchronous loading rather than synchronously updating state in an effect.
     void Promise.resolve().then(load);
