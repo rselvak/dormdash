@@ -19,7 +19,7 @@ export default async function SignUpPage() {
   const registration = await getRegistration(userId);
 
   if (registration) {
-    redirect("/dashboard");
+    redirect("/");
   }
 
   const user = await currentUser();
