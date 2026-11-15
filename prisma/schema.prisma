@@ -72,12 +72,18 @@ enum EventStatus {
   PUBLISHED
 }
 
+enum ParticipationStatus {
+  ACCEPTED
+  WAITLISTED
+}
+
 model Event {
   id String @id @default(cuid())
   parentId String
   parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
 
   name String
+  color String?
   college String?
   collegeKey String?
   dorm String?
@@ -91,6 +97,8 @@ model Event {
   totalCostCents Int?
   individualCostCents Int?
   maxParticipants Int
+  waitingListAllowed Boolean @default(false)
+  maxWaitingList Int?
 
   participants EventParticipant[]
   createdAt DateTime @default(now())
@@ -110,7 +118,9 @@ model EventParticipant {
   parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
   student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   joinedAt DateTime @default(now())
+  status ParticipationStatus @default(ACCEPTED)
   @@unique([eventId, parentId])
   @@index([eventId])
   @@index([parentId])
+  @@index([eventId, status, joinedAt, id])
 }

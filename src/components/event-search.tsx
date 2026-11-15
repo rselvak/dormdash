@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { DormSelect } from "@/components/dorm-select";
+import { getCollegeMajors } from "@/lib/colleges";
 
 const eventTypes = [
   ["", "All event types"], ["COLLEGE_PICKUP", "College pickup"], ["COLLEGE_DROP_OFF", "College drop-off"],
@@ -16,6 +18,7 @@ export function EventSearch({ colleges, studentCount }: { colleges: string[]; st
   const [end, setEnd] = useState("");
   const [dorm, setDorm] = useState("");
   const [major, setMajor] = useState("");
+  const majorOptions = useMemo(() => getCollegeMajors(college), [college]);
   const [events, setEvents] = useState<Result[]>([]);
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -48,7 +51,7 @@ export function EventSearch({ colleges, studentCount }: { colleges: string[]; st
   return <div className="mt-6 space-y-6">
     <form onSubmit={search} className="grid gap-4 rounded-2xl border border-border bg-card p-5 sm:grid-cols-2 sm:p-6">
       <label className="text-sm font-medium">College <span className="text-red-600">*</span>
-        <select required value={college} onChange={e => setCollege(e.target.value)} className="mt-2 w-full rounded-lg border border-border bg-background p-3">
+        <select required value={college} onChange={e => { setCollege(e.target.value); setDorm(""); setMajor(""); }} className="mt-2 w-full rounded-lg border border-border bg-background p-3">
           <option value="">Select a college</option>
           {colleges.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -64,11 +67,12 @@ export function EventSearch({ colleges, studentCount }: { colleges: string[]; st
       <label className="text-sm font-medium">End date
         <input type="date" value={end} onChange={e => setEnd(e.target.value)} className="mt-2 w-full rounded-lg border border-border bg-background p-3" />
       </label>
-      <label className="text-sm font-medium">Dorm name
-        <input type="text" maxLength={120} placeholder="e.g. San Nicolas" value={dorm} onChange={e => setDorm(e.target.value)} className="mt-2 w-full rounded-lg border border-border bg-background p-3" />
-      </label>
+      <DormSelect key={college} college={college} value={dorm} onChange={setDorm} label="Dorm name" emptyLabel="Any dorm" />
       <label className="text-sm font-medium">Major name
-        <input type="text" maxLength={120} placeholder="e.g. Computer Science" value={major} onChange={e => setMajor(e.target.value)} className="mt-2 w-full rounded-lg border border-border bg-background p-3" />
+        <select disabled={!college} value={major} onChange={e => setMajor(e.target.value)} className="mt-2 w-full rounded-lg border border-border bg-background p-3 disabled:opacity-50">
+          <option value="">{college ? "All majors" : "Choose a college first"}</option>
+          {majorOptions.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
       </label>
       <p className="text-xs text-muted sm:col-span-2">Without a complete date range, only upcoming events are included. Past events are available when you specify both dates.</p>
       <div className="sm:col-span-2"><button type="submit" disabled={loading || !college} className="rounded-full bg-accent px-6 py-3 text-sm font-semibold text-accent-foreground disabled:opacity-50">{loading ? "Searching…" : "Search events"}</button></div>

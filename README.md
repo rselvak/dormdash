@@ -215,6 +215,23 @@ badge and caps usage. Before real traffic:
 
 ## Database
 
+### Event waiting lists
+
+Creators can enable a waiting list when creating or editing an event. Its optional
+maximum accepts nonnegative whole numbers; blank means unlimited and zero allows
+no waiting entries. The creator initially counts as an accepted participant.
+Once accepted capacity is reached, additional responses join the waiting list.
+Withdrawing frees a place for the earliest waiting response, ordered by its stored
+`joinedAt` timestamp (then participant ID for ties). Promotion preserves that time.
+Increasing capacity also promotes waiting users. Edits cannot remove existing
+waiting users or reduce capacity below the accepted count.
+
+The participant export includes acceptance status and response time in UTC.
+Apply migrations before running the updated app. Integration tests are opt-in:
+set `DORMDASH_TEST_DATABASE_URL` to a development/test database with migrations
+applied, then run `npm test`. These tests create temporary users/events and remove
+them afterward. Never point this test variable at production.
+
 The app stores registrations in PostgreSQL through Prisma 7 (`prisma/schema.prisma`):
 
 - `Parent` — one row per Clerk user, keyed by the Parent 1 email that signs in.
