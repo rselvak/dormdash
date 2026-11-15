@@ -67,14 +67,14 @@ export async function GET(request: Request) {
       orderBy: { startsAt: "asc" },
       take: 100,
       select: {
-        id: true, name: true, college: true, dorm: true, major: true,
+        id: true, name: true, color: true, college: true, dorm: true, major: true,
         type: true, startsAt: true, dueAt: true, maxParticipants: true,
         participants: { where: { status: "ACCEPTED" }, select: { parentId: true } },
       },
     });
     return NextResponse.json({
       events: events.map(e => ({
-        id: e.id, name: e.name, college: e.college, dorm: e.dorm, major: e.major,
+        id: e.id, name: e.name, color: e.color, college: e.college, dorm: e.dorm, major: e.major,
         type: e.type, startsAt: e.startsAt, dueAt: e.dueAt,
         participantCount: e.participants.length, maxParticipants: e.maxParticipants,
       })),
