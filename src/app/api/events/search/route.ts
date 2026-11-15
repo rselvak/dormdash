@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       select: {
         id: true, name: true, college: true, dorm: true, major: true,
         type: true, startsAt: true, dueAt: true, maxParticipants: true,
-        participants: { select: { parentId: true } },
+        participants: { where: { status: "ACCEPTED" }, select: { parentId: true } },
       },
     });
     return NextResponse.json({

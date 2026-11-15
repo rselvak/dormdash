@@ -9,6 +9,7 @@ import {
   type StudentDraft,
 } from "@/lib/registration-draft";
 import { Combobox } from "@/components/registration/combobox";
+import { DormSelect } from "@/components/dorm-select";
 import {
   Field,
   SelectInput,
@@ -145,18 +146,20 @@ export function StudentFields({
             placeholder="Start typing a college name"
             emptyMessage="No California college matches that search."
             onChange={(collegeName) =>
-              onChange({ college: collegeName, major: "" })
+              onChange({ college: collegeName, major: "", dorm: "" })
             }
           />
         </Field>
 
         <Field id={`${idPrefix}-dorm`} label="Dorm name" error={error("dorm")}>
-          <TextInput
+          <DormSelect
+            key={value.college}
+            college={value.college}
             id={`${idPrefix}-dorm`}
             name={`${idPrefix}-dorm`}
             value={value.dorm}
             invalid={Boolean(error("dorm"))}
-            onChange={(event) => onChange({ dorm: event.target.value })}
+            onChange={(dorm) => onChange({ dorm })}
           />
         </Field>
 
