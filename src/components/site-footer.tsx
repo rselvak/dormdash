@@ -8,7 +8,7 @@ export function SiteFooter() {
           &copy; {new Date().getFullYear()} {siteConfig.name}
         </p>
         <p className="text-xs">
-          Built with Next.js, TypeScript, and Clerk.
+          Connecting college families, one trip at a time.
         </p>
       </div>
     </footer>
