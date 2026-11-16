@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getPrisma } from "@/lib/db";
 import { collegeKey } from "@/lib/college";
 
-const types = ["COLLEGE_PICKUP", "COLLEGE_DROP_OFF", "CARPOOL", "VANPOOL", "BUSPOOL", "PACKAGE_DELIVERY", "ANNOUNCEMENT"] as const;
+const types = ["COLLEGE_PICKUP", "COLLEGE_DROP_OFF", "CARPOOL", "VANPOOL", "BUSPOOL", "ANNOUNCEMENT"] as const;
 const querySchema = z.object({
   college: z.string().trim().min(1).max(200),
   type: z.enum(types).optional(),
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       : { gte: new Date() };
     const events = await prisma.event.findMany({
       where: {
-        status: "PUBLISHED",
+        status: { in: ["PUBLISHED", "CANCELLED"] },
         collegeKey: key,
         ...(q.start&&q.end?{startsAt}:{OR:[{startsAt:{gte:new Date()}},{allDay:true,endsAt:{gt:new Date()}}]}),
         ...(q.type ? { type: q.type } : {}),
@@ -67,14 +67,14 @@ export async function GET(request: Request) {
       orderBy: { startsAt: "asc" },
       take: 100,
       select: {
-        id: true, name: true, color: true, college: true, dorm: true, major: true,
+        id: true, name: true, status: true, cancellationReason: true, color: true, college: true, dorm: true, major: true,
         type: true, allDay: true, endsAt: true, timeZone: true, startsAt: true, dueAt: true, maxParticipants: true,
         participants: { where: { status: "ACCEPTED" }, select: { parentId: true } },
       },
     });
     return NextResponse.json({
       events: events.map(e => ({
-        id: e.id, name: e.name, color: e.color, college: e.college, dorm: e.dorm, major: e.major,
+        id: e.id, name: e.name, status: e.status, cancellationReason: e.cancellationReason, color: e.color, college: e.college, dorm: e.dorm, major: e.major,
         type: e.type, allDay:e.allDay,endsAt:e.endsAt,timeZone:e.timeZone,startsAt: e.startsAt, dueAt: e.dueAt,
         participantCount: e.participants.length, maxParticipants: e.maxParticipants,
       })),

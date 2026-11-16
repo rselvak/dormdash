@@ -29,6 +29,7 @@ model Parent {
   parent2Email String?
 
   participations EventParticipant[]
+  notifications EventNotification[]
   events    Event[]
   students  Student[]
   createdAt DateTime  @default(now())
@@ -70,11 +71,17 @@ enum EventType {
 enum EventStatus {
   DRAFT
   PUBLISHED
+  CANCELLED
 }
 
 enum ParticipationStatus {
   ACCEPTED
   WAITLISTED
+}
+
+enum TripService {
+  PACKAGE_DELIVERY
+  PASSENGER_TRANSPORT
 }
 
 model Event {
@@ -84,6 +91,7 @@ model Event {
 
   name String
   color String?
+  instructions String?
   college String?
   collegeKey String?
   dorm String?
@@ -94,7 +102,10 @@ model Event {
   timeZone String @default("America/Los_Angeles")
   dueAt DateTime?
   type EventType
+  services TripService[] @default([])
   status EventStatus @default(DRAFT)
+  cancellationReason String?
+  cancelledAt DateTime?
   paymentRequired Boolean @default(false)
   totalCostCents Int?
   individualCostCents Int?
@@ -103,12 +114,26 @@ model Event {
   maxWaitingList Int?
 
   participants EventParticipant[]
+  notifications EventNotification[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([collegeKey, status, startsAt])
   @@index([status, startsAt])
   @@index([parentId, status])
+}
+
+model EventNotification {
+  id String @id @default(cuid())
+  parentId String
+  eventId String
+  parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  readAt DateTime?
+
+  @@unique([eventId, parentId])
+  @@index([parentId, readAt, createdAt])
 }
 
 model EventParticipant {
@@ -121,6 +146,7 @@ model EventParticipant {
   student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   joinedAt DateTime @default(now())
   status ParticipationStatus @default(ACCEPTED)
+  requestedServices TripService[] @default([])
   @@unique([eventId, parentId])
   @@index([eventId])
   @@index([parentId])

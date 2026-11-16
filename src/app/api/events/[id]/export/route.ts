@@ -4,6 +4,8 @@ import ExcelJS from "exceljs";
 import { getPrisma } from "@/lib/db";
 import { collegeKey } from "@/lib/college";
 
+import { serviceSummary } from "@/lib/trip-services";
+
 type Context={params:Promise<{id:string}>};
 export async function GET(_request:Request,{params}:Context) {
   try {
@@ -12,9 +14,9 @@ export async function GET(_request:Request,{params}:Context) {
     const parent=await getPrisma().parent.findUnique({where:{clerkUserId:userId},select:{id:true,students:{select:{college:true}}}});
     if(!parent) return NextResponse.json({error:"Complete registration first"},{status:403});
     const {id}=await params;
-    const studentFields={id:true,name:true,email:true,college:true,major:true,dorm:true} as const;
+    const studentFields={id:true,name:true,college:true,major:true,dorm:true} as const;
     const event=await getPrisma().event.findUnique({where:{id},include:{participants:{orderBy:[{joinedAt:"asc"},{id:"asc"}],include:{parent:{select:{name:true,email:true,phone:true,students:{select:studentFields,orderBy:{id:"asc"}}}},student:{select:studentFields}}}}});
-    if(!event || (event.parentId!==parent.id && (event.status!=="PUBLISHED" || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)))) return NextResponse.json({error:"Event not found"},{status:404});
+    if(!event || (event.parentId!==parent.id && !(event.status==="CANCELLED"&&event.participants.some(p=>p.parentId===parent.id)) && ((event.status!=="PUBLISHED"&&event.status!=="CANCELLED") || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)))) return NextResponse.json({error:"Event not found"},{status:404});
     // Export is explicitly available to every registered user who can view the event.
     const workbook=new ExcelJS.Workbook();
     const sheet=workbook.addWorksheet("Participants");
@@ -24,11 +26,11 @@ export async function GET(_request:Request,{params}:Context) {
       {header:"Parent name",key:"name",width:26},
       {header:"Parent email",key:"email",width:36},
       {header:"Student name",key:"studentName",width:26},
-      {header:"Student email",key:"studentEmail",width:36},
       {header:"Student college",key:"college",width:44},
       {header:"Student major",key:"major",width:44},
       {header:"Student dorm",key:"dorm",width:30},
-      {header:"Parent 1 phone",key:"phone",width:22}
+      {header:"Parent 1 phone",key:"phone",width:22},
+      ...(event.type==="COLLEGE_PICKUP"?[{header:"Services requested",key:"requestedServices",width:44}]:[])
     ];
     sheet.getRow(1).font={bold:true};
     for(const p of event.participants) {
@@ -37,8 +39,8 @@ export async function GET(_request:Request,{params}:Context) {
       // Keep the participant visible if no matching student registration exists.
       // These are student rows, not additional accepted places in the event.
       for(const student of students.length ? students : [null]) sheet.addRow({
-        status:p.status,joinedAt:p.joinedAt.toISOString(),name:p.parent.name,email:p.parent.email,
-        studentName:student?.name??"",studentEmail:student?.email??"",
+        requestedServices:p.requestedServices?.length?serviceSummary(p.requestedServices):"Not specified",status:p.status,joinedAt:p.joinedAt.toISOString(),name:p.parent.name,email:p.parent.email,
+        studentName:student?.name??"",
         college:student?.college??"",major:student?.major??"",dorm:student?.dorm??"",phone:p.parent.phone
       });
     }

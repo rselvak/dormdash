@@ -9,6 +9,10 @@ vi.mock("@/lib/db", () => ({ getPrisma: () => mocks.db }));
 import { POST, DELETE } from "@/app/api/events/[id]/join/route";
 import { PATCH, GET } from "@/app/api/events/[id]/route";
 import { POST as createEvent } from "@/app/api/events/route";
+import { POST as cancelEvent } from "@/app/api/events/[id]/cancel/route";
+import { GET as notifications, PATCH as readNotification } from "@/app/api/notifications/route";
+import { GET as listEvents } from "@/app/api/events/route";
+import { GET as searchEvents } from "@/app/api/events/search/route";
 
 // Opt in with an explicitly selected disposable/development database, never DATABASE_URL.
 const url = process.env.DORMDASH_TEST_DATABASE_URL;
@@ -49,6 +53,67 @@ describe.skipIf(!url)("waiting list database flow", () => {
       await db.$disconnect();
     }
   });
+  it("cancels with a reason, notifies accepted and waitlisted parents once, and retains participation", async () => {
+    await join(1);await join(2);
+    as(0);
+    expect((await cancelEvent(request("POST",{reason:"Driver is unavailable"}),context())).status).toBe(200);
+    const event=await db.event.findUniqueOrThrow({where:{id:eventId},include:{participants:true,notifications:true}});
+    expect(event).toMatchObject({status:"CANCELLED",cancellationReason:"Driver is unavailable"});
+    expect(event.cancelledAt).toBeInstanceOf(Date);
+    expect(event.participants).toHaveLength(3);
+    expect(event.notifications.map(n=>n.parentId).sort()).toEqual([parents[1].id,parents[2].id].sort());
+    expect((await cancelEvent(request("POST",{reason:"Second attempt"}),context())).status).toBe(200);
+    expect(await db.eventNotification.count({where:{eventId}})).toBe(2);
+    expect((await db.event.findUniqueOrThrow({where:{id:eventId}})).cancellationReason).toBe("Driver is unavailable");
+    expect((await join(3)).status).toBe(409);
+    expect((await withdraw(1)).status).toBe(409);
+    expect(await db.eventParticipant.count({where:{eventId}})).toBe(3);
+    as(1);
+    const detail=await (await GET(request("GET"),context())).json();
+    expect(detail.event).toMatchObject({status:"CANCELLED",cancellationReason:"Driver is unavailable"});
+    const inbox=await (await notifications()).json();
+    expect(inbox.unreadCount).toBe(1);
+    expect(inbox.notifications[0].event).toMatchObject({id:eventId,cancellationReason:"Driver is unavailable"});
+    const noticeId=inbox.notifications[0].id;
+    as(3);
+    expect((await (await readNotification(request("PATCH",{id:noticeId}))).json()).updated).toBe(0);
+    expect((await (await notifications()).json()).notifications).toEqual([]);
+    as(1);
+    expect((await readNotification(request("PATCH",{id:noticeId}))).status).toBe(200);
+    expect((await (await notifications()).json()).unreadCount).toBe(0);
+  });
+  it("requires the organizer and a nonempty reason, and rejects cancelling a draft", async () => {
+    as(1);
+    expect((await cancelEvent(request("POST",{reason:"Not mine"}),context())).status).toBe(403);
+    as(0);
+    for(const reason of ["", "   ", "x".repeat(2001)]) expect((await cancelEvent(request("POST",{reason}),context())).status).toBe(400);
+    await db.event.update({where:{id:eventId},data:{status:"DRAFT"}});
+    expect((await cancelEvent(request("POST",{reason:"Private"}),context())).status).toBe(409);
+    expect(await db.eventNotification.count({where:{eventId}})).toBe(0);
+  });
+  it("keeps cancelled events in calendar and search, and prevents reopening", async () => {
+    as(0);
+    await cancelEvent(request("POST",{reason:"Weather"}),context());
+    const body=await (await listEvents(new Request("http://localhost/api/events?published=upcoming"))).json();
+    expect(body.events.find((e:{id:string})=>e.id===eventId)?.status).toBe("CANCELLED");
+    const results=await (await searchEvents(new Request("http://localhost/api/events/search?college="+encodeURIComponent(college)))).json();
+    expect(results.events.find((e:{id:string})=>e.id===eventId)).toMatchObject({status:"CANCELLED",cancellationReason:"Weather"});
+    const event=await db.event.findUniqueOrThrow({where:{id:eventId}});
+    expect((await PATCH(request("PATCH",{name:event.name,college,type:event.type,services:[],status:"PUBLISHED",startsAt:event.startsAt.toISOString(),dueAt:null,maxParticipants:2,waitingListAllowed:true,maxWaitingList:2}),context())).status).toBe(409);
+    expect((await db.event.findUniqueOrThrow({where:{id:eventId}})).status).toBe("CANCELLED");
+  });
+  it("serializes cancellation with concurrent joins and notifies every successful join", async () => {
+    // Auth is captured before the first database call, so simultaneous requests keep their own identity.
+    as(1);const joining=POST(request("POST",{studentId:parents[1].students[0].id}),context());
+    await Promise.resolve();
+    as(0);const cancelling=cancelEvent(request("POST",{reason:"Schedule changed"}),context());
+    const [joined,cancelled]=await Promise.all([joining,cancelling]);
+    expect(cancelled.status).toBe(200);
+    expect([201,409]).toContain(joined.status);
+    const participant=await db.eventParticipant.findUnique({where:{eventId_parentId:{eventId,parentId:parents[1].id}}});
+    expect(await db.eventNotification.count({where:{eventId,parentId:parents[1].id}})).toBe(participant?1:0);
+    expect((await db.event.findUniqueOrThrow({where:{id:eventId}})).status).toBe("CANCELLED");
+  });
   it("accepts to capacity, queues excess responses, enforces the limit and rejects duplicates", async () => {
     expect((await (await join(1)).json()).participationStatus).toBe("ACCEPTED");
     expect((await (await join(2)).json()).participationStatus).toBe("WAITLISTED");
@@ -72,7 +137,15 @@ describe.skipIf(!url)("waiting list database flow", () => {
   });
   it("keeps today's all-day events joinable until their end", async () => {
     await db.event.update({where:{id:eventId},data:{allDay:true,startsAt:new Date(Date.now()-3600000),endsAt:new Date(Date.now()+3600000)}});
+    const event=await db.event.findUniqueOrThrow({where:{id:eventId}});
+    const dueAt=new Date(Date.now()+1800000).toISOString();
+    as(0);
+    expect((await PATCH(request("PATCH",{name:prefix,college,type:"CARPOOL",status:"PUBLISHED",maxParticipants:2,waitingListAllowed:true,maxWaitingList:2,allDay:true,startsAt:event.startsAt.toISOString(),endsAt:event.endsAt!.toISOString(),dueAt}),context())).status).toBe(200);
+    expect((await (await GET(request("GET"),context())).json()).event.dueAt).toBe(dueAt);
     expect((await join(1)).status).toBe(201);
+    await db.event.update({where:{id:eventId},data:{dueAt:new Date(Date.now()-1000)}});
+    expect((await join(2)).status).toBe(409);
+    await db.event.update({where:{id:eventId},data:{dueAt:null}});
     await db.event.update({where:{id:eventId},data:{endsAt:new Date(Date.now()-1000)}});
     expect((await join(2)).status).toBe(409);
   });
@@ -83,6 +156,37 @@ describe.skipIf(!url)("waiting list database flow", () => {
       const body={...valid,[key]:undefined};
       expect((await createEvent(request("POST",body))).status).toBe(400);
     }
+  });
+  it("stores offered and requested trip services for accepted and waiting participants",async()=>{
+    await db.event.update({where:{id:eventId},data:{type:"COLLEGE_PICKUP",services:["PACKAGE_DELIVERY","PASSENGER_TRANSPORT"]}});
+    const choices=[["PACKAGE_DELIVERY"],["PASSENGER_TRANSPORT"],["PACKAGE_DELIVERY","PASSENGER_TRANSPORT"]];
+    for(let i=0;i<choices.length;i++){
+      as(i+1);
+      const response=await POST(request("POST",{studentId:parents[i+1].students[0].id,requestedServices:choices[i]}),context());
+      expect(response.status).toBe(201);
+      expect((await response.json()).participationStatus).toBe(i===0?"ACCEPTED":"WAITLISTED");
+      const row=await db.eventParticipant.findUniqueOrThrow({where:{eventId_parentId:{eventId,parentId:parents[i+1].id}}});
+      expect(row.requestedServices).toEqual(choices[i]);
+    }
+    as(0);
+    const response=await PATCH(request("PATCH",{name:prefix,college,type:"COLLEGE_PICKUP",services:["PASSENGER_TRANSPORT"],startsAt:new Date(Date.now()+86400000).toISOString(),dueAt:null,status:"PUBLISHED",maxParticipants:2,waitingListAllowed:true,maxWaitingList:2}),context());
+    expect(response.status).toBe(409);
+  });
+  it("rejects missing or unavailable service requests",async()=>{
+    await db.event.update({where:{id:eventId},data:{type:"COLLEGE_PICKUP",services:["PACKAGE_DELIVERY"]}});
+    as(1);
+    for(const requestedServices of [[],["PASSENGER_TRANSPORT"]])expect((await POST(request("POST",{studentId:parents[1].students[0].id,requestedServices}),context())).status).toBe(400);
+  });
+  it("enforces response deadlines for every event type, including waiting-list requests",async()=>{
+    as(1);
+    for(const type of ["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUSPOOL","PACKAGE_DELIVERY","ANNOUNCEMENT"] as const){
+      for(const maxParticipants of [1,2]){
+        await db.event.update({where:{id:eventId},data:{type,maxParticipants,dueAt:new Date(Date.now()-1000),services:type==="COLLEGE_PICKUP"?["PASSENGER_TRANSPORT"]:[]}});
+        const response=await POST(request("POST",{studentId:parents[1].students[0].id,requestedServices:type==="COLLEGE_PICKUP"?["PASSENGER_TRANSPORT"]:[]}),context());
+        expect(response.status,`${type}, capacity ${maxParticipants}`).toBe(409);
+      }
+    }
+    expect(await db.eventParticipant.count({where:{eventId}})).toBe(1);
   });
   it("promotes the earliest response and preserves its timestamp", async () => {
     await join(1); await join(2); await join(3);
@@ -139,14 +243,16 @@ describe.skipIf(!url)("waiting list database flow", () => {
   });
   it("creates an event with waiting list settings", async () => {
     as(0);
-    const response = await createEvent(request("POST", { name: prefix, college, color: "#db2777", startsAt: new Date(Date.now() + 86400000).toISOString(), type: "CARPOOL", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 }));
+    const response = await createEvent(request("POST", { name: prefix, college, instructions: "Meet at the main gate.\nBring labelled packages.", color: "#db2777", startsAt: new Date(Date.now() + 86400000).toISOString(), type: "CARPOOL", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 }));
     expect(response.status).toBe(201);
     const body = await response.json();
-    expect(body.event).toMatchObject({ waitingListAllowed: true, maxWaitingList: 3, color: "#db2777" });
+    expect(body.event).toMatchObject({ waitingListAllowed: true, maxWaitingList: 3, color: "#db2777", instructions: "Meet at the main gate.\nBring labelled packages." });
     eventId = body.event.id;
     expect((await (await GET(request("GET"), context())).json()).event.color).toBe("#db2777");
-    const update = { name: prefix, college, color: "#0891b2", startsAt: body.event.startsAt, dueAt: null, type: "CARPOOL", status: "PUBLISHED", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 };
+    const update = { name: prefix, college, instructions: "Meet at the north gate.", color: "#0891b2", startsAt: body.event.startsAt, dueAt: null, type: "CARPOOL", status: "PUBLISHED", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 };
     expect((await PATCH(request("PATCH", update), context())).status).toBe(200);
-    expect((await (await GET(request("GET"), context())).json()).event.color).toBe("#0891b2");
+    const updated=(await (await GET(request("GET"), context())).json()).event;
+    expect(updated.color).toBe("#0891b2");
+    expect(updated.instructions).toBe("Meet at the north gate.");
   });
 });
