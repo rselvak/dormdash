@@ -89,6 +89,8 @@ model Event {
   dorm String?
   major String?
   startsAt DateTime
+  allDay Boolean @default(false)
+  endsAt DateTime?
   timeZone String @default("America/Los_Angeles")
   dueAt DateTime?
   type EventType

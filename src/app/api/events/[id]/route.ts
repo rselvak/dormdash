@@ -8,6 +8,8 @@ import { participationSummary, promoteWaitingList, waitingListFields } from "@/l
 
 import { eventColorSchema } from "@/lib/event-color";
 
+import { scheduleFields, validateSchedule } from "@/lib/event-schedule";
+
 type Context = { params: Promise<{ id: string }> };
 async function identity() {
   const { userId } = await auth();
@@ -23,10 +25,10 @@ export async function GET(_request:Request,{params}:Context) {
     if(!event || (event.parentId!==parent.id && (event.status!=="PUBLISHED" || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)))) return NextResponse.json({error:"Event not found"},{status:404});
     const isOwner=event.parentId===parent.id;
     const mine=event.participants.find(p=>p.parentId===parent.id);
-    return NextResponse.json({event:{id:event.id,name:event.name,color:event.color,college:event.college,dorm:event.dorm,major:event.major,startsAt:event.startsAt,dueAt:event.dueAt,type:event.type,status:event.status,maxParticipants:event.maxParticipants,paymentRequired:event.paymentRequired,totalCostCents:event.totalCostCents,individualCostCents:event.individualCostCents,waitingListAllowed:event.waitingListAllowed,maxWaitingList:event.maxWaitingList,...participationSummary(event.participants,parent.id),isOwner,selectedStudentId:mine?.studentId??null},students:parent.students});
+    return NextResponse.json({event:{id:event.id,name:event.name,color:event.color,college:event.college,dorm:event.dorm,major:event.major,startsAt:event.startsAt,allDay:event.allDay,endsAt:event.endsAt,timeZone:event.timeZone,dueAt:event.dueAt,type:event.type,status:event.status,maxParticipants:event.maxParticipants,paymentRequired:event.paymentRequired,totalCostCents:event.totalCostCents,individualCostCents:event.individualCostCents,waitingListAllowed:event.waitingListAllowed,maxWaitingList:event.maxWaitingList,...participationSummary(event.participants,parent.id),isOwner,selectedStudentId:mine?.studentId??null},students:parent.students});
   } catch(error) {console.error("Event detail failed",error);return NextResponse.json({error:"Could not load event"},{status:500});}
 }
-const editSchema=z.object({...waitingListFields,color:eventColorSchema,name:z.string().trim().min(1).max(160),college:z.string().trim().min(1).max(200),dorm:z.string().trim().max(120).nullable().optional(),major:z.string().trim().max(120).nullable().optional(),startsAt:z.iso.datetime({offset:true}),dueAt:z.iso.datetime({offset:true}).nullable(),type:z.enum(["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUSPOOL","PACKAGE_DELIVERY","ANNOUNCEMENT"]),status:z.enum(["DRAFT","PUBLISHED"]),maxParticipants:z.number().int().positive().max(10000)}).refine(v=>!v.dueAt || new Date(v.dueAt)<=new Date(v.startsAt),{message:"Deadline must be before event",path:["dueAt"]});
+const editSchema=z.object({...waitingListFields,...scheduleFields,timeZone:z.string().min(1).max(100).optional(),color:eventColorSchema,name:z.string().trim().min(1).max(160),college:z.string().trim().min(1).max(200),dorm:z.string().trim().max(120).nullable().optional(),major:z.string().trim().max(120).nullable().optional(),startsAt:z.iso.datetime({offset:true}),dueAt:z.iso.datetime({offset:true}).nullable(),type:z.enum(["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUSPOOL","PACKAGE_DELIVERY","ANNOUNCEMENT"]),status:z.enum(["DRAFT","PUBLISHED"]),maxParticipants:z.number().int().positive().max(10000)}).superRefine(validateSchedule).refine(v=>!v.dueAt || new Date(v.dueAt)<=new Date(v.startsAt),{message:"Deadline must be before event",path:["dueAt"]});
 export async function PATCH(request:Request,{params}:Context) {
   try {
     const parent=await identity();
@@ -45,7 +47,7 @@ export async function PATCH(request:Request,{params}:Context) {
       if(remainingWaiting>0 && (!parsed.data.waitingListAllowed || (parsed.data.maxWaitingList!=null && parsed.data.maxWaitingList<remainingWaiting))) return {status:409,error:"Waiting list settings cannot remove existing waiting participants"};
       if(parsed.data.maxParticipants<accepted) return {status:409,error:"Capacity cannot be below current participation"};
       if(!parent.students.some(s=>collegeKey(s.college)===collegeKey(parsed.data.college))) return {status:403,error:"College must belong to one of your students"};
-      await tx.event.update({where:{id},data:{...parsed.data,maxWaitingList:parsed.data.waitingListAllowed?(parsed.data.maxWaitingList??null):null,collegeKey:collegeKey(parsed.data.college),startsAt:new Date(parsed.data.startsAt),dueAt:parsed.data.dueAt?new Date(parsed.data.dueAt):null}});
+      await tx.event.update({where:{id},data:{...parsed.data,endsAt:parsed.data.allDay&&parsed.data.endsAt?new Date(parsed.data.endsAt):null,maxWaitingList:parsed.data.waitingListAllowed?(parsed.data.maxWaitingList??null):null,collegeKey:collegeKey(parsed.data.college),startsAt:new Date(parsed.data.startsAt),dueAt:parsed.data.dueAt?new Date(parsed.data.dueAt):null}});
       await promoteWaitingList(tx,id,parsed.data.maxParticipants);
       return {status:200};
     });

@@ -8,8 +8,11 @@ import { participationSummary, waitingListFields } from "@/lib/event-participati
 
 import { eventColorSchema } from "@/lib/event-color";
 
+import { scheduleFields, validateSchedule } from "@/lib/event-schedule";
+
 const eventTypes = ["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUSPOOL","PACKAGE_DELIVERY","ANNOUNCEMENT"] as const;
 const schema = z.object({
+  ...scheduleFields,
   color: eventColorSchema,
   name: z.string().trim().min(1).max(160),
   college: z.string().trim().min(1).max(200),
@@ -26,6 +29,7 @@ const schema = z.object({
   ...waitingListFields,
   maxParticipants: z.number().int().positive().max(10000),
 }).superRefine((v, ctx) => {
+  validateSchedule(v,ctx);
   if (v.dueAt && new Date(v.dueAt) > new Date(v.startsAt)) ctx.addIssue({code:"custom",path:["dueAt"],message:"Due date cannot be after event start"});
   if (!v.paymentRequired && (v.totalCostCents != null || v.individualCostCents != null)) ctx.addIssue({code:"custom",path:["paymentRequired"],message:"Costs require payment enabled"});
   if (v.paymentRequired && v.totalCostCents == null && v.individualCostCents == null) ctx.addIssue({code:"custom",path:["totalCostCents"],message:"Provide a total or individual cost"});
@@ -46,14 +50,14 @@ export async function GET(request: Request) {
   const publishedOnly = url.searchParams.get("published") === "upcoming";
   const events = await prisma.event.findMany({
     where:{
-      ...(publishedOnly ? {status:"PUBLISHED" as const,collegeKey:{in:keys},startsAt:{gte:new Date()}} : {OR:[{status:"PUBLISHED" as const,collegeKey:{in:keys}},{parentId:parent.id}]}),
+      ...(publishedOnly ? {status:"PUBLISHED" as const,collegeKey:{in:keys},OR:[{startsAt:{gte:new Date()}},{allDay:true,endsAt:{gt:new Date()}}]} : {OR:[{status:"PUBLISHED" as const,collegeKey:{in:keys}},{parentId:parent.id}]}),
       ...(!publishedOnly && (start || end) ? {startsAt:{...(start?{gte:new Date(start)}:{}),...(end?{lt:new Date(end)}:{})}} : {}),
     },
     orderBy:{startsAt:"asc"},
     take:500,
-    select:{id:true,parentId:true,name:true,color:true,college:true,dorm:true,major:true,startsAt:true,timeZone:true,dueAt:true,type:true,status:true,paymentRequired:true,totalCostCents:true,individualCostCents:true,maxParticipants:true,waitingListAllowed:true,maxWaitingList:true,participants:{select:{parentId:true,status:true,joinedAt:true}}},
+    select:{id:true,parentId:true,name:true,color:true,college:true,dorm:true,major:true,startsAt:true,allDay:true,endsAt:true,timeZone:true,dueAt:true,type:true,status:true,paymentRequired:true,totalCostCents:true,individualCostCents:true,maxParticipants:true,waitingListAllowed:true,maxWaitingList:true,participants:{select:{parentId:true,status:true,joinedAt:true}}},
   });
-  return NextResponse.json({colleges:[...new Set(parent.students.map(s=>s.college.trim()))],events:events.map(e=>({id:e.id,name:e.name,color:e.color,college:e.college,dorm:e.dorm,major:e.major,startsAt:e.startsAt,dueAt:e.dueAt,type:e.type,status:e.status,maxParticipants:e.maxParticipants,paymentRequired:e.paymentRequired,totalCostCents:e.totalCostCents,individualCostCents:e.individualCostCents,isOwner:e.parentId===parent.id,waitingListAllowed:e.waitingListAllowed,maxWaitingList:e.maxWaitingList,...participationSummary(e.participants,parent.id)}))});
+  return NextResponse.json({colleges:[...new Set(parent.students.map(s=>s.college.trim()))],events:events.map(e=>({id:e.id,name:e.name,color:e.color,college:e.college,dorm:e.dorm,major:e.major,startsAt:e.startsAt,allDay:e.allDay,endsAt:e.endsAt,timeZone:e.timeZone,dueAt:e.dueAt,type:e.type,status:e.status,maxParticipants:e.maxParticipants,paymentRequired:e.paymentRequired,totalCostCents:e.totalCostCents,individualCostCents:e.individualCostCents,isOwner:e.parentId===parent.id,waitingListAllowed:e.waitingListAllowed,maxWaitingList:e.maxWaitingList,...participationSummary(e.participants,parent.id)}))});
   } catch (error) {
     console.error("Failed to list events", error);
     return NextResponse.json({error:"Unable to load events. Check database migrations and server logs."},{status:500});
@@ -75,7 +79,7 @@ export async function POST(request: Request) {
   if(!parent.students.some(s=>collegeKey(s.college)===collegeKey(v.college))) return NextResponse.json({error:"Select a college registered to one of your students"},{status:403});
   const event=await prisma.event.create({data:{
     parentId:parent.id,name:v.name,color:v.color??null,college:v.college,collegeKey:collegeKey(v.college),dorm:v.dorm||null,major:v.major||null,startsAt:new Date(v.startsAt),dueAt:v.dueAt?new Date(v.dueAt):null,
-    timeZone:v.timeZone,type:v.type,status:v.status,paymentRequired:v.paymentRequired,
+    allDay:v.allDay,endsAt:v.allDay&&v.endsAt?new Date(v.endsAt):null,timeZone:v.timeZone,type:v.type,status:v.status,paymentRequired:v.paymentRequired,
     totalCostCents:v.paymentRequired?(v.totalCostCents??null):null,
     individualCostCents:v.paymentRequired?(v.individualCostCents??null):null,
     maxParticipants:v.maxParticipants,waitingListAllowed:v.waitingListAllowed,maxWaitingList:v.waitingListAllowed?(v.maxWaitingList??null):null,

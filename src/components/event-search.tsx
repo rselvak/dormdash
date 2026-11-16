@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { DormSelect } from "@/components/dorm-select";
 import { getCollegeMajors } from "@/lib/colleges";
+import { eventDateLabel } from "@/lib/event-ui";
 import { eventColorStyle } from "@/lib/event-color";
 import { EventDetailsDialog } from "@/components/event-details-dialog";
 
@@ -11,7 +12,7 @@ const eventTypes = [
   ["CARPOOL", "Carpool"], ["VANPOOL", "Vanpool"], ["BUSPOOL", "Buspool"],
   ["PACKAGE_DELIVERY", "Package delivery"], ["ANNOUNCEMENT", "Announcement"],
 ] as const;
-type Result = { color: string | null; id: string; name: string; college: string | null; dorm: string | null; major: string | null; type: string; startsAt: string; participantCount: number; maxParticipants: number };
+type Result = {allDay:boolean;timeZone:string; color: string | null; id: string; name: string; college: string | null; dorm: string | null; major: string | null; type: string; startsAt: string; participantCount: number; maxParticipants: number };
 
 export function EventSearch({ colleges, studentCount }: { colleges: string[]; studentCount: number }) {
   const [college, setCollege] = useState(studentCount === 1 ? colleges[0] ?? "" : "");
@@ -102,7 +103,7 @@ export function EventSearch({ colleges, studentCount }: { colleges: string[]; st
       <div className="grid gap-3">{events.map((e, index) => <button key={e.id} type="button" onClick={() => setActiveId(e.id)} aria-label={`View details for ${e.name}`} style={{borderLeftColor:eventColorStyle(e.color,e.type).backgroundColor}} className={"w-full rounded-xl border-2 border-l-[6px] border-border p-5 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent "+(index%2===0?"bg-card":"bg-accent/5")}>
         <span className="block font-semibold">{e.name}</span>
         <span className="mt-2 block text-sm text-muted">{e.college} · {eventTypes.find(([value]) => value === e.type)?.[1] ?? e.type}</span>
-        <span className="mt-1 block text-sm">{new Date(e.startsAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Los_Angeles" })}</span>
+        <span className="mt-1 block text-sm">{eventDateLabel(e)}</span>
         {(e.dorm || e.major) && <span className="mt-1 block text-sm text-muted">{[e.dorm && "Dorm: " + e.dorm, e.major && "Major: " + e.major].filter(Boolean).join(" · ")}</span>}
         <span className="mt-2 block text-xs text-muted">{e.participantCount} / {e.maxParticipants} participants</span>
         <span className="mt-3 block text-sm font-medium text-accent">View details &amp; actions →</span>

@@ -1,4 +1,14 @@
 import type { NextConfig } from "next";
+import { networkInterfaces } from "node:os";
+
+// Origins identify this server, not the phones/computers visiting it.
+// Resolve exact private IPv4 addresses at startup instead of allowing every origin.
+const localDevHosts = Object.values(networkInterfaces()).flatMap(addresses =>
+  (addresses ?? []).filter(({ family, internal, address }) =>
+    family === "IPv4" && !internal &&
+    /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(address),
+  ).map(({ address }) => address),
+);
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -16,6 +26,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  allowedDevOrigins: localDevHosts,
   turbopack: {
     rules: {
       "*.css": {

@@ -14,6 +14,7 @@ import {
   FormBanner,
   TextInput,
 } from "@/components/registration/form-controls";
+import { PasswordInput } from "@/components/registration/password-input";
 import { StudentFields } from "@/components/registration/student-fields";
 import { completeRegistration } from "@/app/sign-up/actions";
 import {
@@ -695,10 +696,9 @@ export function RegistrationForm({
                       required
                       error={fieldErrors.password}
                     >
-                      <TextInput
+                      <PasswordInput
                         id="password"
                         name="password"
-                        type="password"
                         autoComplete="new-password"
                         value={draft.parent.password}
                         invalid={Boolean(fieldErrors.password)}
@@ -714,10 +714,9 @@ export function RegistrationForm({
                       required
                       error={fieldErrors.confirmPassword}
                     >
-                      <TextInput
+                      <PasswordInput
                         id="confirm-password"
                         name="confirm-password"
-                        type="password"
                         autoComplete="new-password"
                         value={draft.parent.confirmPassword}
                         invalid={Boolean(fieldErrors.confirmPassword)}

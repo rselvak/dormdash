@@ -7,7 +7,7 @@ import { z } from "zod";
 import { promoteWaitingList } from "@/lib/event-participation";
 
 type Context={params:Promise<{id:string}>};
-const schema=z.object({studentId:z.string().nullable()});
+const schema=z.object({studentId:z.string().trim().min(1)});
 export async function POST(request:Request,{params}:Context) {
   try {
     const {userId}=await auth();
@@ -25,7 +25,7 @@ export async function POST(request:Request,{params}:Context) {
       const existing=await tx.eventParticipant.findUnique({where:{eventId_parentId:{eventId:id,parentId:parent.id}}});
       if(existing) return {status:409,error:"You have already joined"};
       if(event.dueAt && event.dueAt.getTime()<Date.now()) return {status:409,error:"Joining deadline has passed"};
-      if(event.startsAt.getTime()<Date.now()) return {status:409,error:"This event has already started"};
+      if((event.allDay && event.endsAt ? event.endsAt : event.startsAt).getTime()<Date.now()) return {status:409,error:"This event has already started"};
       await promoteWaitingList(tx,id,event.maxParticipants);
       const accepted=await tx.eventParticipant.count({where:{eventId:id,status:"ACCEPTED"}});
       const waiting=await tx.eventParticipant.count({where:{eventId:id,status:"WAITLISTED"}});
