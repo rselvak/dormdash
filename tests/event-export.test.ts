@@ -33,13 +33,13 @@ describe("participant Excel export",()=>{
     expect(sheet.rowCount).toBe(4);
     const values=sheet.getSheetValues();
     expect(JSON.stringify(values)).not.toContain("other@example.test");
-    expect(sheet.getRow(1).values).toEqual([undefined,"Status","Responded at (UTC)","Parent name","Parent email","Student name","Student email","Student college","Student major","Student dorm","Parent 1 phone"]);
+    expect(sheet.getRow(1).values).toEqual([undefined,"Status","Responded at (UTC)","Parent name","Parent email","Student name","Student college","Student major","Student dorm","Parent 1 phone"]);
     for(const [row,s] of [[2,first],[3,second],[4,second]] as const){
       expect(sheet.getRow(row).getCell(5).value).toBe(s.name);
-      expect(sheet.getRow(row).getCell(6).value).toBe(s.email);
-      expect(sheet.getRow(row).getCell(7).value).toBe(s.college);
-      expect(sheet.getRow(row).getCell(8).value).toBe(s.major);
-      expect(sheet.getRow(row).getCell(9).value).toBe(s.dorm);
+      expect(JSON.stringify(values)).not.toContain(s.email);
+      expect(sheet.getRow(row).getCell(6).value).toBe(s.college);
+      expect(sheet.getRow(row).getCell(7).value).toBe(s.major);
+      expect(sheet.getRow(row).getCell(8).value).toBe(s.dorm);
     }
   });
   it("retains a participant row when no student matches the event college",async()=>{
@@ -54,5 +54,20 @@ describe("participant Excel export",()=>{
     mocks.auth.mockResolvedValue({userId:null});
     expect((await request()).status).toBe(401);
     expect(mocks.event).not.toHaveBeenCalled();
+  });
+  it("includes requested services for Trip To College",async()=>{
+    const students=[student("package"),student("passenger"),student("both")];
+    mocks.event.mockResolvedValue({name:"Trip",type:"COLLEGE_PICKUP",parentId:"owner",collegeKey:"stanford university",participants:[
+      {...participant([students[0]],students[0]),requestedServices:["PACKAGE_DELIVERY"]},
+      {...participant([students[1]],students[1]),requestedServices:["PASSENGER_TRANSPORT"]},
+      {...participant([students[2]],students[2]),requestedServices:["PACKAGE_DELIVERY","PASSENGER_TRANSPORT"]},
+    ]});
+    const workbook=new ExcelJS.Workbook();
+    await workbook.xlsx.load(await (await request()).arrayBuffer());
+    const sheet=workbook.getWorksheet("Participants")!;
+    expect(sheet.getRow(1).getCell(10).value).toBe("Services requested");
+    expect(sheet.getRow(2).getCell(10).value).toBe("Package delivery");
+    expect(sheet.getRow(3).getCell(10).value).toBe("Passenger transport");
+    expect(sheet.getRow(4).getCell(10).value).toBe("Package delivery + Passenger transport");
   });
 });
