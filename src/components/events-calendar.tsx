@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { RidePoolFields } from "@/components/ride-pool-fields";
 import { TripServiceChoices } from "@/components/trip-service-choices";
 import { type TripService } from "@/lib/trip-services";
 import { DormSelect } from "@/components/dorm-select";
@@ -26,6 +27,8 @@ export function EventsCalendar() {
   const [createdEvent,setCreatedEvent]=useState<ShareableEvent|null>(null);
   const [activeId,setActiveId]=useState<string|null>(null);
   const [eventColor,setEventColor]=useState("#2563eb");
+  const [origin,setOrigin]=useState("");
+  const [destination,setDestination]=useState("");
   const [instructions,setInstructions]=useState("");
   const [name,setName]=useState("");
   const [dorm,setDorm]=useState("");
@@ -90,7 +93,7 @@ export function EventsCalendar() {
       if(type==="COLLEGE_PICKUP"&&!services.length)throw new Error("Choose at least one service offered.");
       const body={
         waitingListAllowed,maxWaitingList:waitingListAllowed&&maxWaitingList!==""?Number(maxWaitingList):null,
-        name,instructions:instructions.trim()||null,color:eventColor,college,dorm:dorm.trim()||null,major:major.trim()||null,type,services:type==="COLLEGE_PICKUP"?services:[],status,paymentRequired,maxParticipants:Number(maxParticipants),
+        name,origin:type==="CARPOOL"?origin.trim():null,destination:type==="CARPOOL"?destination.trim():null,instructions:instructions.trim()||null,color:eventColor,college,dorm:dorm.trim()||null,major:major.trim()||null,type,services:type==="COLLEGE_PICKUP"?services:[],status,paymentRequired,maxParticipants:Number(maxParticipants),
         ...scheduleInput(dateTime,allDay,dueAt),
         timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         totalCostCents:paymentRequired&&totalCost!==""?Math.round(Number(totalCost)*100):null,
@@ -144,6 +147,7 @@ export function EventsCalendar() {
         <label className="text-sm">Event name<input required maxLength={160} value={name} onChange={e=>setName(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
         <label className="text-sm">College *<select required value={college} onChange={e=>{setCollege(e.target.value);setDorm("");setMajor("")}} className="mt-1 w-full rounded-lg border border-border bg-background p-2"><option value="">Select college</option>{colleges.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
         <label className="text-sm">Major (optional)<select disabled={!college} value={major} onChange={e=>setMajor(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2 disabled:opacity-50"><option value="">{college?"All majors":"Choose a college first"}</option>{major&&!majorOptions.includes(major)&&<option value={major}>{major} (previously saved)</option>}{majorOptions.map(m=><option key={m} value={m}>{m}</option>)}</select></label>
+        {type==="CARPOOL"&&<RidePoolFields origin={origin} destination={destination} onOriginChange={setOrigin} onDestinationChange={setDestination}/> }
         {type==="COLLEGE_PICKUP"&&<TripServiceChoices value={services} onChange={setServices}/>}
         <label className="text-sm sm:col-span-2">Instructions (optional)<textarea rows={4} maxLength={4000} value={instructions} onChange={e=>setInstructions(e.target.value)} placeholder="Add meeting points, package handover details, or other instructions." className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
         <EventColorPicker value={eventColor} onChange={setEventColor}/>

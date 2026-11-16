@@ -92,6 +92,8 @@ model Event {
   name String
   color String?
   instructions String?
+  origin String?
+  destination String?
   college String?
   collegeKey String?
   dorm String?

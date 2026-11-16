@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getPrisma } from "@/lib/db";
 import { collegeKey } from "@/lib/college";
 
-const types = ["COLLEGE_PICKUP", "COLLEGE_DROP_OFF", "CARPOOL", "VANPOOL", "BUSPOOL", "ANNOUNCEMENT"] as const;
+const types = ["COLLEGE_PICKUP", "COLLEGE_DROP_OFF", "CARPOOL", "VANPOOL", "BUSPOOL"] as const;
 const querySchema = z.object({
   college: z.string().trim().min(1).max(200),
   type: z.enum(types).optional(),

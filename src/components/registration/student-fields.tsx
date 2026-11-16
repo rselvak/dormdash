@@ -134,7 +134,7 @@ export function StudentFields({
           label="College"
           required
           error={error("college")}
-          hint="Search California colleges and universities."
+          hint="Currently supporting UC and CSU campuses, Stanford, and USC. More colleges will be added later."
           className="sm:col-span-2"
         >
           <Combobox
@@ -144,7 +144,7 @@ export function StudentFields({
             options={COLLEGE_OPTIONS}
             invalid={Boolean(error("college"))}
             placeholder="Start typing a college name"
-            emptyMessage="No California college matches that search."
+            emptyMessage="No supported college matches that search. More colleges will be added later."
             onChange={(collegeName) =>
               onChange({ college: collegeName, major: "", dorm: "" })
             }
