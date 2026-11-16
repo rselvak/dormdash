@@ -70,7 +70,7 @@ jobs:
         run: node scripts/dev/configure-test-preview.mjs
 
       - name: Pull Vercel environment
-        run: vercel pull --yes --environment=preview --git-branch=test --token="$VERCEL_TOKEN"
+        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
 
       - name: Install app dependencies
         run: npm ci

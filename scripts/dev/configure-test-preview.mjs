@@ -26,7 +26,7 @@ for (const [key, value] of Object.entries(variables)) {
   url.searchParams.set("upsert", "true");
   const response = await fetch(url, {
     method: "POST", headers: { Authorization: `Bearer ${env.VERCEL_TOKEN}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ key, value, type: key === "DATABASE_URL" || key === "CLERK_SECRET_KEY" ? "sensitive" : "encrypted", target: ["preview"], gitBranch: "test" }),
+    body: JSON.stringify({ key, value, type: key === "DATABASE_URL" || key === "CLERK_SECRET_KEY" ? "sensitive" : "encrypted", target: ["preview"] }),
   });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
