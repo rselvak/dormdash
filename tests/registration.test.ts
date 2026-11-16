@@ -158,7 +158,7 @@ describe("registrationSchema", () => {
 
     expect(toFieldErrors(result.error)).toHaveProperty(
       "students.0.college",
-      "Choose a supported UC or CSU campus, Stanford, or USC from the list.",
+      "Choose a supported college from the list.",
     );
   });
 
@@ -184,8 +184,8 @@ describe("registrationSchema", () => {
 });
 
 describe("supported registration colleges", () => {
-  it("offers only the 34 colleges with housing and majors", () => {
-    expect(COLLEGE_OPTIONS).toHaveLength(34);
+  it("offers only the 55 colleges with housing and majors", () => {
+    expect(COLLEGE_OPTIONS).toHaveLength(55);
     expect(COLLEGE_OPTIONS.map(option => option.value).sort()).toEqual(HOUSING_CAMPUSES.map(campus => campus.college).sort());
     for (const college of REGISTRATION_COLLEGES) {
       expect(registrationSchema.safeParse({...validRegistration,students:[{...validRegistration.students[0],college:college.name,major:college.majors[0]}]}).success).toBe(true);

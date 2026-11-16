@@ -17,6 +17,8 @@ export type ComboboxOption = {
   label: string;
   /** Secondary text shown on the right, such as a city. */
   description?: string;
+  /** Search aliases without changing the stored option value. */
+  keywords?: readonly string[];
 };
 
 type ComboboxProps = {
@@ -69,7 +71,8 @@ export function Combobox({
     return options.filter(
       (option) =>
         option.label.toLowerCase().includes(needle) ||
-        option.description?.toLowerCase().includes(needle),
+        option.description?.toLowerCase().includes(needle) ||
+        option.keywords?.some(keyword => keyword.toLowerCase().includes(needle)),
     );
   }, [exactMatch, open, options, typing, value]);
 

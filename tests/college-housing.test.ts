@@ -10,7 +10,7 @@ describe("college housing directory", () => {
     const target = COLLEGES.filter(c => /^(University of California-|California State |California Polytechnic State University-)/.test(c.name)
       || ["San Diego State University", "San Francisco State University", "San Jose State University", "Sonoma State University", "Cal Poly Maritime Academy", "Stanford University", "University of Southern California"].includes(c.name));
     expect(target).toHaveLength(34);
-    expect(new Set(HOUSING_CAMPUSES.map(c => c.college)).size).toBe(34);
+    expect(new Set(HOUSING_CAMPUSES.map(c => c.college)).size).toBe(55);
     for (const college of target) expect(getDormOptions(college.name).length, college.name).toBeGreaterThan(0);
     for (const campus of HOUSING_CAMPUSES) expect(COLLEGES.some(c => c.name === campus.college)).toBe(true);
   });
