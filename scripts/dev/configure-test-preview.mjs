@@ -28,6 +28,13 @@ for (const [key, value] of Object.entries(variables)) {
     method: "POST", headers: { Authorization: `Bearer ${env.VERCEL_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ key, value, type: key === "DATABASE_URL" || key === "CLERK_SECRET_KEY" ? "sensitive" : "encrypted", target: ["preview"], gitBranch: "test" }),
   });
-  if (!response.ok) throw new Error(`Unable to configure test preview variable ${key} (HTTP ${response.status})`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    let detail = String(data.error?.message || data.error?.code || "Request rejected");
+    for (const value of [...Object.values(variables), env.VERCEL_TOKEN]) {
+      if (value && value.length > 8) detail = detail.replaceAll(value, "[redacted]");
+    }
+    throw new Error(`Unable to configure test preview variable ${key} (HTTP ${response.status}): ${detail}`);
+  }
   console.log(`Configured ${key} for the test preview only.`);
 }
