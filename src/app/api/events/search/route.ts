@@ -59,7 +59,7 @@ export async function GET(request: Request) {
       where: {
         status: "PUBLISHED",
         collegeKey: key,
-        startsAt,
+        ...(q.start&&q.end?{startsAt}:{OR:[{startsAt:{gte:new Date()}},{allDay:true,endsAt:{gt:new Date()}}]}),
         ...(q.type ? { type: q.type } : {}),
         ...(q.dorm ? { dorm: { contains: q.dorm, mode: "insensitive" } } : {}),
         ...(q.major ? { major: { contains: q.major, mode: "insensitive" } } : {}),
@@ -68,14 +68,14 @@ export async function GET(request: Request) {
       take: 100,
       select: {
         id: true, name: true, color: true, college: true, dorm: true, major: true,
-        type: true, startsAt: true, dueAt: true, maxParticipants: true,
+        type: true, allDay: true, endsAt: true, timeZone: true, startsAt: true, dueAt: true, maxParticipants: true,
         participants: { where: { status: "ACCEPTED" }, select: { parentId: true } },
       },
     });
     return NextResponse.json({
       events: events.map(e => ({
         id: e.id, name: e.name, color: e.color, college: e.college, dorm: e.dorm, major: e.major,
-        type: e.type, startsAt: e.startsAt, dueAt: e.dueAt,
+        type: e.type, allDay:e.allDay,endsAt:e.endsAt,timeZone:e.timeZone,startsAt: e.startsAt, dueAt: e.dueAt,
         participantCount: e.participants.length, maxParticipants: e.maxParticipants,
       })),
     });

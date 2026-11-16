@@ -8,7 +8,7 @@ import { EventColorPicker } from "@/components/event-color-picker";
 import { eventColorStyle } from "@/lib/event-color";
 
 import { EventDetailsDialog } from "@/components/event-details-dialog";
-import { type CalendarEvent as Event, type EventType, eventTypes as types, localDate, isoWithOffset, readApi } from "@/lib/event-ui";
+import { type CalendarEvent as Event, type EventType, eventTypes as types, localDate, scheduleInput, eventDateLabel, eventDay, readApi } from "@/lib/event-ui";
 
 export function EventsCalendar() {
   const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
@@ -26,14 +26,15 @@ export function EventsCalendar() {
   const [dorm,setDorm]=useState("");
   const [major,setMajor]=useState("");
   const majorOptions=useMemo(()=>getCollegeMajors(college),[college]);
+  const [allDay,setAllDay]=useState(false);
   const [dateTime,setDateTime]=useState("");
   const [dueAt,setDueAt]=useState("");
-  const [type,setType]=useState<EventType>("COLLEGE_PICKUP");
+  const [type,setType]=useState<EventType|"">("");
   const [status,setStatus]=useState<"DRAFT"|"PUBLISHED">("DRAFT");
   const [paymentRequired,setPaymentRequired]=useState(false);
   const [totalCost,setTotalCost]=useState("");
   const [individualCost,setIndividualCost]=useState("");
-  const [maxParticipants,setMaxParticipants]=useState("4");
+  const [maxParticipants,setMaxParticipants]=useState("");
   const [waitingListAllowed,setWaitingListAllowed]=useState(false);
   const [maxWaitingList,setMaxWaitingList]=useState("");
   const [now]=useState(()=>Date.now());
@@ -60,7 +61,7 @@ export function EventsCalendar() {
   const grouped=useMemo(()=>{
     const result:Record<string,Event[]>={};
     for(const event of events) {
-      const key=localDate(new Date(event.startsAt));
+      const key=eventDay(event);
       (result[key]??=[]).push(event);
     }
     return result;
@@ -70,7 +71,7 @@ export function EventsCalendar() {
     openForDate(localDate(new Date(month.getFullYear(),month.getMonth(),day)));
   }
   function openForDate(d:string) {
-    setActiveId(null);setSelected(d);setCollege(colleges[0]||"");setDateTime(d+"T09:00");setDueAt("");setName("");setEventColor("#2563eb");setDorm("");setMajor("");setPaymentRequired(false);setTotalCost("");setIndividualCost("");setStatus("DRAFT");setType("COLLEGE_PICKUP");setMaxParticipants("4");setWaitingListAllowed(false);setMaxWaitingList("");setError("");
+    setActiveId(null);setSelected(d);setCollege("");setAllDay(false);setDateTime(d+"T09:00");setDueAt("");setName("");setEventColor("#2563eb");setDorm("");setMajor("");setPaymentRequired(false);setTotalCost("");setIndividualCost("");setStatus("DRAFT");setType("");setMaxParticipants("");setWaitingListAllowed(false);setMaxWaitingList("");setError("");
   }
   async function save(e:React.FormEvent) {
     e.preventDefault();setSaving(true);setError("");
@@ -78,8 +79,7 @@ export function EventsCalendar() {
       const body={
         waitingListAllowed,maxWaitingList:waitingListAllowed&&maxWaitingList!==""?Number(maxWaitingList):null,
         name,color:eventColor,college,dorm:dorm.trim()||null,major:major.trim()||null,type,status,paymentRequired,maxParticipants:Number(maxParticipants),
-        startsAt:isoWithOffset(dateTime),
-        dueAt:dueAt?isoWithOffset(dueAt):null,
+        ...scheduleInput(dateTime,allDay,dueAt),
         timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone,
         totalCostCents:paymentRequired&&totalCost!==""?Math.round(Number(totalCost)*100):null,
         individualCostCents:paymentRequired&&individualCost!==""?Math.round(Number(individualCost)*100):null,
@@ -113,24 +113,27 @@ export function EventsCalendar() {
     </div>
     {loading&&<p className="mt-3 text-sm text-muted">Loading events...</p>}
     {error&&<p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
-    <section className="mt-8 rounded-xl border-2 border-emerald-500 bg-emerald-50/40 p-4 dark:border-emerald-400 dark:bg-emerald-950/20" aria-label="Upcoming published events">
+    {!selected&&<section className="mt-8 rounded-xl border-2 border-emerald-500 bg-emerald-50/40 p-4 dark:border-emerald-400 dark:bg-emerald-950/20" aria-label="Upcoming published events">
       <h3 className="text-lg font-semibold">Upcoming published events</h3>
       {published.length===0&&!loading&&!error&&<p className="mt-2 text-sm text-muted">No upcoming published events yet.</p>}
-      <div className="mt-3 grid gap-2">{published.map((ev,index)=><button type="button" onClick={()=>void openEvent(ev.id)} key={ev.id} style={{borderLeftColor:eventColorStyle(ev.color,ev.type).backgroundColor}} className={"flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-l-[6px] border-border p-4 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent "+(index%2===0?"bg-card":"bg-accent/5")}><div><p className="font-medium">{ev.name}</p><p className="text-xs text-muted">{ev.college}  |  {types.find(t=>t.value===ev.type)?.label}  |  {new Date(ev.startsAt).toLocaleString()}</p></div><span className="rounded px-2 py-1 text-xs" style={eventColorStyle(ev.color,ev.type)}>Published</span></button>)}</div>
-    </section>
+      <div className="mt-3 grid gap-2">{published.map((ev,index)=><button type="button" onClick={()=>void openEvent(ev.id)} key={ev.id} style={{borderLeftColor:eventColorStyle(ev.color,ev.type).backgroundColor}} className={"flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border-2 border-l-[6px] border-border p-4 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent "+(index%2===0?"bg-card":"bg-accent/5")}><div><p className="font-medium">{ev.name}</p><p className="text-xs text-muted">{ev.college}  |  {types.find(t=>t.value===ev.type)?.label}  |  {eventDateLabel(ev)}</p></div><span className="rounded px-2 py-1 text-xs" style={eventColorStyle(ev.color,ev.type)}>Published</span></button>)}</div>
+    </section>}
     {activeId&&<EventDetailsDialog key={activeId} eventId={activeId} colleges={colleges} onClose={()=>setActiveId(null)} onChanged={load}/>}
     {selected&&<div className="mt-6 rounded-xl border-2 border-accent border-l-4 bg-accent/5 p-4">
       <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">Create event  |  {selected}</h3><button type="button" onClick={()=>setSelected(null)} aria-label="Close event form">Close</button></div>
       <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-        <label className="text-sm">Event type<select value={type} onChange={e=>setType(e.target.value as EventType)} className="mt-1 w-full rounded-lg border border-border bg-background p-2">{types.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
+        <label className="text-sm">Event type *<select required value={type} onChange={e=>setType(e.target.value as EventType)} className="mt-1 w-full rounded-lg border border-border bg-background p-2"><option value="">Select event type</option>{types.map(t=><option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
         <label className="text-sm">Event name<input required maxLength={160} value={name} onChange={e=>setName(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
-        <label className="text-sm">College<select required value={college} onChange={e=>{setCollege(e.target.value);setDorm("");setMajor("")}} className="mt-1 w-full rounded-lg border border-border bg-background p-2"><option value="">Select college</option>{colleges.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
+        <label className="text-sm">College *<select required value={college} onChange={e=>{setCollege(e.target.value);setDorm("");setMajor("")}} className="mt-1 w-full rounded-lg border border-border bg-background p-2"><option value="">Select college</option>{colleges.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
         <label className="text-sm">Major (optional)<select disabled={!college} value={major} onChange={e=>setMajor(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2 disabled:opacity-50"><option value="">{college?"All majors":"Choose a college first"}</option>{major&&!majorOptions.includes(major)&&<option value={major}>{major} (previously saved)</option>}{majorOptions.map(m=><option key={m} value={m}>{m}</option>)}</select></label>
         <EventColorPicker value={eventColor} onChange={setEventColor}/>
         <div className="sm:col-span-2"><DormSelect key={college} college={college} value={dorm} onChange={setDorm} label="Dorm (optional)" inlineOther/></div>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2"><input type="checkbox" checked={allDay} onChange={e=>setAllDay(e.target.checked)}/> All day event</label>
+        {!allDay&&<>
         <label className="text-sm">Event date and time<input required type="datetime-local" value={dateTime} onChange={e=>setDateTime(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
         <label className="text-sm">Due date and time (optional)<input type="datetime-local" value={dueAt} onChange={e=>setDueAt(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
-        <label className="text-sm">Max participants<input required type="number" min={1} max={10000} value={maxParticipants} onChange={e=>setMaxParticipants(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
+        </>}
+        <label className="text-sm">Max participants *<input required type="number" min={1} max={10000} value={maxParticipants} onChange={e=>setMaxParticipants(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
         <label className="flex items-center gap-2 self-end rounded-lg border border-border p-2 text-sm"><input type="checkbox" checked={waitingListAllowed} onChange={e=>setWaitingListAllowed(e.target.checked)}/> Is Waiting List Allowed</label>
         {waitingListAllowed&&<label className="text-sm">Max Number in Waiting List (optional)<input type="text" inputMode="numeric" pattern="[0-9]*" maxLength={10} value={maxWaitingList} onChange={e=>{if(/^\d*$/.test(e.target.value))setMaxWaitingList(e.target.value)}} className="mt-1 w-full rounded-lg border border-border bg-background p-2"/><span className="mt-1 block text-xs text-muted">Leave blank for no limit.</span></label>}
         <label className="text-sm">Visibility<select value={status} onChange={e=>setStatus(e.target.value as "DRAFT"|"PUBLISHED")} className="mt-1 w-full rounded-lg border border-border bg-background p-2"><option value="DRAFT">Draft (private)</option><option value="PUBLISHED">Published (shared)</option></select></label>

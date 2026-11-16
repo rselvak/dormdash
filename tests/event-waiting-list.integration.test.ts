@@ -14,7 +14,7 @@ import { POST as createEvent } from "@/app/api/events/route";
 const url = process.env.DORMDASH_TEST_DATABASE_URL;
 describe.skipIf(!url)("waiting list database flow", () => {
   let db: PrismaClient;
-  const parents: { id: string; clerkUserId: string }[] = [];
+  const parents: { id: string; clerkUserId: string; students: { id:string }[] }[] = [];
   let eventId: string;
   const college = "Stanford University";
   const prefix = `waiting-list-test-${crypto.randomUUID()}`;
@@ -23,7 +23,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
     method, ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
   });
   const as = (index: number) => mocks.auth.mockResolvedValue({ userId: parents[index].clerkUserId });
-  const join = async (index: number) => { as(index); return POST(request("POST", { studentId: null }), context()); };
+  const join = async (index: number) => { as(index); return POST(request("POST", { studentId: parents[index].students[0].id }), context()); };
   const withdraw = async (index: number) => { as(index); return DELETE(request("DELETE"), context()); };
   beforeAll(async () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url! }) });
@@ -31,7 +31,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
     for (let i = 0; i < 6; i++) parents.push(await db.parent.create({ data: {
       clerkUserId: `${prefix}-${i}`, name: "Waiting list test", email: `${prefix}-${i}@example.test`, phone: "5551234567",
       students: { create: { name: "Test student", email: `${prefix}-${i}@student.test`, college, major: "Test" } },
-    } }));
+    },include:{students:{select:{id:true}}} }));
   });
   beforeEach(async () => {
     await db.event.deleteMany({ where: { parentId: { in: parents.map(p => p.id) } } });
@@ -60,6 +60,30 @@ describe.skipIf(!url)("waiting list database flow", () => {
     expect(detail.event).toMatchObject({ participantCount: 2, waitingListCount: 2, participationStatus: "WAITLISTED" });
     expect(new Date(detail.event.joinedAt).getTime()).toBeGreaterThan(0);
   });
+  it("requires a registered student for accepted and waiting-list responses", async () => {
+    as(1);
+    for (const studentId of [null, "", "not-my-student"]) {
+      expect((await POST(request("POST", { studentId }), context())).status).toBe(400);
+    }
+    await join(1);
+    as(2);
+    expect((await POST(request("POST", { studentId: null }), context())).status).toBe(400);
+    expect(await db.eventParticipant.count({where:{eventId}})).toBe(2);
+  });
+  it("keeps today's all-day events joinable until their end", async () => {
+    await db.event.update({where:{id:eventId},data:{allDay:true,startsAt:new Date(Date.now()-3600000),endsAt:new Date(Date.now()+3600000)}});
+    expect((await join(1)).status).toBe(201);
+    await db.event.update({where:{id:eventId},data:{endsAt:new Date(Date.now()-1000)}});
+    expect((await join(2)).status).toBe(409);
+  });
+  it("requires event type, college, and capacity when creating an event",async()=>{
+    as(0);
+    const valid={name:prefix,college,type:"CARPOOL",maxParticipants:2,startsAt:new Date(Date.now()+86400000).toISOString()};
+    for(const key of ["college","type","maxParticipants"] as const){
+      const body={...valid,[key]:undefined};
+      expect((await createEvent(request("POST",body))).status).toBe(400);
+    }
+  });
   it("promotes the earliest response and preserves its timestamp", async () => {
     await join(1); await join(2); await join(3);
     await db.eventParticipant.update({ where: { eventId_parentId: { eventId, parentId: parents[2].id } }, data: { joinedAt: new Date("2026-01-01T00:00:00Z") } });
@@ -79,7 +103,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
   it("serializes concurrent joins and withdrawals without overbooking", async () => {
     mocks.auth.mockReset();
     for (const p of parents.slice(1)) mocks.auth.mockResolvedValueOnce({ userId: p.clerkUserId });
-    const responses = await Promise.all(parents.slice(1).map(() => POST(request("POST", { studentId: null }), context())));
+    const responses = await Promise.all(parents.slice(1).map(p => POST(request("POST", { studentId: p.students[0].id }), context())));
     expect(responses.filter(r => r.status === 201)).toHaveLength(3);
     expect(await db.eventParticipant.count({ where: { eventId, status: "ACCEPTED" } })).toBe(2);
     expect(await db.eventParticipant.count({ where: { eventId, status: "WAITLISTED" } })).toBe(2);
