@@ -180,7 +180,7 @@ export const studentSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["college"],
-        message: "Choose a supported UC or CSU campus, Stanford, or USC from the list.",
+        message: "Choose a supported college from the list.",
       });
       return;
     }

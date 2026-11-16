@@ -134,7 +134,7 @@ export function StudentFields({
           label="College"
           required
           error={error("college")}
-          hint="Currently supporting UC and CSU campuses, Stanford, and USC. More colleges will be added later."
+          hint="Search supported U.S. colleges by name, city, or abbreviation (such as UIUC, NYU, or MIT)."
           className="sm:col-span-2"
         >
           <Combobox
