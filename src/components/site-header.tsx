@@ -31,6 +31,7 @@ export function SiteHeader() {
           >
             Home
           </Link>
+          <Link href="/my-events" className="text-muted transition-colors hover:text-foreground">My Events</Link>
           <Link
             href="/dashboard"
             className="text-muted transition-colors hover:text-foreground"
@@ -64,6 +65,11 @@ export function SiteHeader() {
           </Show>
         </div>
       </div>
+      <nav aria-label="Mobile navigation" className="flex justify-center gap-6 border-t border-border px-4 py-3 text-sm md:hidden">
+        <Link href="/" className="text-muted hover:text-foreground">Home</Link>
+        <Link href="/my-events" className="text-muted hover:text-foreground">My Events</Link>
+        <Link href="/dashboard" className="text-muted hover:text-foreground">Search</Link>
+      </nav>
     </header>
   );
 }

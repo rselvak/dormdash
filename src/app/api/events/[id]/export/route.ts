@@ -16,7 +16,7 @@ export async function GET(_request:Request,{params}:Context) {
     const {id}=await params;
     const studentFields={id:true,name:true,college:true,major:true,dorm:true} as const;
     const event=await getPrisma().event.findUnique({where:{id},include:{participants:{orderBy:[{joinedAt:"asc"},{id:"asc"}],include:{parent:{select:{name:true,email:true,phone:true,students:{select:studentFields,orderBy:{id:"asc"}}}},student:{select:studentFields}}}}});
-    if(!event || (event.parentId!==parent.id && !(event.status==="CANCELLED"&&event.participants.some(p=>p.parentId===parent.id)) && ((event.status!=="PUBLISHED"&&event.status!=="CANCELLED") || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)))) return NextResponse.json({error:"Event not found"},{status:404});
+    if(!event || (event.parentId!==parent.id && !((event.status==="PUBLISHED"||event.status==="CANCELLED")&&event.participants.some(p=>p.parentId===parent.id)) && ((event.status!=="PUBLISHED"&&event.status!=="CANCELLED") || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)))) return NextResponse.json({error:"Event not found"},{status:404});
     // Export is explicitly available to every registered user who can view the event.
     const workbook=new ExcelJS.Workbook();
     const sheet=workbook.addWorksheet("Participants");
