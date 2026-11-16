@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { COLLEGES, COLLEGE_OPTIONS, REGISTRATION_COLLEGES, getCollegeMajors } from "@/lib/colleges";
+import { HOUSING_CAMPUSES } from "@/lib/college-housing";
 
 import {
   isValidPhone,
@@ -156,7 +158,7 @@ describe("registrationSchema", () => {
 
     expect(toFieldErrors(result.error)).toHaveProperty(
       "students.0.college",
-      "Choose a college from the list.",
+      "Choose a supported college from the list.",
     );
   });
 
@@ -178,6 +180,27 @@ describe("registrationSchema", () => {
       "students.0.major",
       "Choose a major offered at Stanford University.",
     );
+  });
+});
+
+describe("supported registration colleges", () => {
+  it("offers only the 55 colleges with housing and majors", () => {
+    expect(COLLEGE_OPTIONS).toHaveLength(55);
+    expect(COLLEGE_OPTIONS.map(option => option.value).sort()).toEqual(HOUSING_CAMPUSES.map(campus => campus.college).sort());
+    for (const college of REGISTRATION_COLLEGES) {
+      expect(registrationSchema.safeParse({...validRegistration,students:[{...validRegistration.students[0],college:college.name,major:college.majors[0]}]}).success).toBe(true);
+    }
+  });
+
+  it("rejects excluded colleges even with an otherwise valid major, preserving legacy lookup data", () => {
+    const excluded = COLLEGES.filter(college => !COLLEGE_OPTIONS.some(option => option.value === college.name));
+    expect(excluded.length).toBeGreaterThan(0);
+    for (const college of excluded) {
+      const result = registrationSchema.safeParse({...validRegistration,students:[{...validRegistration.students[0],college:college.name,major:college.majors[0]}]});
+      expect(result.success).toBe(false);
+      if (!result.success) expect(toFieldErrors(result.error)).toHaveProperty("students.0.college");
+      expect(getCollegeMajors(college.name)).toEqual(college.majors);
+    }
   });
 });
 

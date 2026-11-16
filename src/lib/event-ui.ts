@@ -1,10 +1,10 @@
+import type { TripService } from "@/lib/trip-services";
 export type EventType = "COLLEGE_PICKUP"|"COLLEGE_DROP_OFF"|"CARPOOL"|"VANPOOL"|"BUSPOOL"|"PACKAGE_DELIVERY"|"ANNOUNCEMENT";
-export type CalendarEvent = {allDay:boolean;endsAt:string|null;timeZone:string;color:string|null;waitingListAllowed:boolean;maxWaitingList:number|null;waitingListCount:number;participationStatus:"ACCEPTED"|"WAITLISTED"|null;joinedAt:string|null;id:string;name:string;college:string|null;dorm:string|null;major:string|null;startsAt:string;type:EventType;status:"DRAFT"|"PUBLISHED";isOwner:boolean;isJoined:boolean;participantCount:number;maxParticipants:number;dueAt:string|null;paymentRequired:boolean;totalCostCents:number|null;individualCostCents:number|null;};
+export type CalendarEvent = {origin:string|null;destination:string|null;instructions:string|null;services:TripService[];requestedServices:TripService[];allDay:boolean;endsAt:string|null;timeZone:string;color:string|null;waitingListAllowed:boolean;maxWaitingList:number|null;waitingListCount:number;participationStatus:"ACCEPTED"|"WAITLISTED"|null;joinedAt:string|null;id:string;name:string;college:string|null;dorm:string|null;major:string|null;startsAt:string;type:EventType;status:"DRAFT"|"PUBLISHED"|"CANCELLED";cancellationReason:string|null;cancelledAt:string|null;isOwner:boolean;isJoined:boolean;participantCount:number;maxParticipants:number;dueAt:string|null;paymentRequired:boolean;totalCostCents:number|null;individualCostCents:number|null;};
 export const eventTypes: {value:EventType;label:string}[] = [
-  {value:"COLLEGE_PICKUP",label:"College pickup"},{value:"COLLEGE_DROP_OFF",label:"College drop-off"},
-  {value:"CARPOOL",label:"Carpool"},{value:"VANPOOL",label:"Vanpool"},
-  {value:"BUSPOOL",label:"Buspool"},{value:"PACKAGE_DELIVERY",label:"Package delivery"},
-  {value:"ANNOUNCEMENT",label:"Announcement"},
+  {value:"COLLEGE_PICKUP",label:"Trip To College"},{value:"COLLEGE_DROP_OFF",label:"Trip From College"},
+  {value:"CARPOOL",label:"Ride Pool"},{value:"VANPOOL",label:"Amtrak"},
+  {value:"BUSPOOL",label:"Buspool"},
 ];
 export const localDate=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");
 
@@ -15,7 +15,7 @@ export function scheduleInput(dateTime: string, allDay: boolean, dueAt: string) 
   if (Number.isNaN(start.getTime())) throw new Error("Choose an event day.");
   const end = new Date(start);
   end.setDate(end.getDate()+1);
-  return { startsAt: start.toISOString(), endsAt: end.toISOString(), dueAt: null, allDay: true };
+  return { startsAt: start.toISOString(), endsAt: end.toISOString(), dueAt: dueAt ? isoWithOffset(dueAt) : null, allDay: true };
 }
 
 export function eventDateLabel(event: { startsAt: string; allDay?: boolean; timeZone?: string }) {

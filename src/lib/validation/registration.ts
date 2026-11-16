@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { getCollege } from "@/lib/colleges";
+import { getCollege, isRegistrationCollege } from "@/lib/colleges";
 
 /**
  * Phone numbers are stored in a light E.164-ish form: an optional leading `+`
@@ -176,11 +176,11 @@ export const studentSchema = z
   .superRefine((value, ctx) => {
     const college = getCollege(value.college);
 
-    if (!college) {
+    if (!college || !isRegistrationCollege(value.college)) {
       ctx.addIssue({
         code: "custom",
         path: ["college"],
-        message: "Choose a college from the list.",
+        message: "Choose a supported college from the list.",
       });
       return;
     }

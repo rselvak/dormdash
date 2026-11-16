@@ -3,6 +3,10 @@
 `college-housing.json` contains published housing names for the nine UC
 undergraduate campuses, 23 CSU campus entries (including Cal Poly Maritime
 Academy), Stanford, and USC. Keys match `california-colleges.json` exactly.
+An additional 21 universities are merged from `additional-colleges.json` by the
+shared housing helper. See `additional-colleges.README.md` for campus scope,
+program provenance, aliases, and maintenance instructions. There are now 55
+supported registration campuses with both program and residence lists.
 
 Each campus entry records official source URLs. `reviewedOn` is the manual
 review date, not a promise of current availability. The list includes residence

@@ -6,8 +6,10 @@ import { z } from "zod";
 
 import { promoteWaitingList } from "@/lib/event-participation";
 
+import { tripServicesSchema } from "@/lib/trip-services";
+
 type Context={params:Promise<{id:string}>};
-const schema=z.object({studentId:z.string().trim().min(1)});
+const schema=z.object({studentId:z.string().trim().min(1),requestedServices:tripServicesSchema.default([])});
 export async function POST(request:Request,{params}:Context) {
   try {
     const {userId}=await auth();
@@ -21,10 +23,14 @@ export async function POST(request:Request,{params}:Context) {
       await tx.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${id} FOR UPDATE`;
       const event=await tx.event.findUnique({where:{id}});
       if(!event) return {status:404,error:"Event not found"};
+      if(event.status==="CANCELLED") return {status:409,error:"This event has been cancelled"};
       if(event.status!=="PUBLISHED" || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)) return {status:404,error:"Event not found"};
+      const requestedServices=parsed.data.requestedServices;
+      if(event.type==="COLLEGE_PICKUP" && (!requestedServices.length || requestedServices.some(service=>!event.services.includes(service)))) return {status:400,error:"Select at least one of the services offered for this trip"};
+      if(event.type!=="COLLEGE_PICKUP" && requestedServices.length) return {status:400,error:"Service requests apply only to Trip To College"};
       const existing=await tx.eventParticipant.findUnique({where:{eventId_parentId:{eventId:id,parentId:parent.id}}});
       if(existing) return {status:409,error:"You have already joined"};
-      if(event.dueAt && event.dueAt.getTime()<Date.now()) return {status:409,error:"Joining deadline has passed"};
+      if(event.dueAt && event.dueAt.getTime()<=Date.now()) return {status:409,error:"Joining deadline has passed"};
       if((event.allDay && event.endsAt ? event.endsAt : event.startsAt).getTime()<Date.now()) return {status:409,error:"This event has already started"};
       await promoteWaitingList(tx,id,event.maxParticipants);
       const accepted=await tx.eventParticipant.count({where:{eventId:id,status:"ACCEPTED"}});
@@ -38,7 +44,8 @@ export async function POST(request:Request,{params}:Context) {
         const eligible=await tx.student.findFirst({where:{id:parsed.data.studentId,parentId:parent.id,college:{not:""}},select:{college:true}});
         if(!eligible || collegeKey(eligible.college)!==event.collegeKey) return {status:400,error:"Student must attend the event college"};
       }
-      await tx.eventParticipant.create({data:{eventId:id,parentId:parent.id,studentId:parsed.data.studentId,status:participationStatus,joinedAt:new Date()}});
+      if(event.dueAt && event.dueAt.getTime()<=Date.now()) return {status:409,error:"The response deadline has passed"};
+      await tx.eventParticipant.create({data:{eventId:id,parentId:parent.id,studentId:parsed.data.studentId,requestedServices,status:participationStatus,joinedAt:new Date()}});
       return {status:201,participationStatus};
     });
     return NextResponse.json(result.status===201?{ok:true,participationStatus:result.participationStatus}:{error:result.error},{status:result.status});
@@ -55,8 +62,9 @@ export async function DELETE(_request: Request, { params }: Context) {
     const { id } = await params;
     const result = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${id} FOR UPDATE`;
-      const event = await tx.event.findUnique({ where: { id }, select: { maxParticipants: true } });
+      const event = await tx.event.findUnique({ where: { id }, select: { maxParticipants: true, status: true } });
       if (!event) return { status: 404, error: "Event not found" };
+      if (event.status === "CANCELLED") return { status: 409, error: "This event has been cancelled; participation records are retained" };
       const mine = await tx.eventParticipant.findUnique({ where: { eventId_parentId: { eventId: id, parentId: parent.id } } });
       if (!mine) return { status: 404, error: "You have not joined this event" };
       await tx.eventParticipant.delete({ where: { id: mine.id } });
