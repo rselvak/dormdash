@@ -39,7 +39,7 @@ jobs:
   deploy:
     name: Deploy test environment
     needs: preflight
-    if: needs.preflight.outputs.enabled == 'true'
+    if: needs.preflight.outputs.enabled == 'true' && github.ref == 'refs/heads/test'
     runs-on: ubuntu-latest
     environment:
       name: test
@@ -61,14 +61,24 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - name: Configure isolated test preview
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          TEST_DATABASE_URL_UNPOOLED: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
+          TEST_CLERK_PUBLISHABLE_KEY: ${{ secrets.TEST_CLERK_PUBLISHABLE_KEY }}
+          TEST_CLERK_SECRET_KEY: ${{ secrets.TEST_CLERK_SECRET_KEY }}
+        run: node scripts/dev/configure-test-preview.mjs
 
-      # Run database migrations against the TEST database here once Prisma is
-      # wired up, for example:
-      #   npx prisma migrate deploy
-      # Keep this step before `vercel build` so a failed migration aborts the
-      # deploy instead of shipping code that expects a missing column.
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=preview --git-branch=test --token="$VERCEL_TOKEN"
+
+      - name: Install app dependencies
+        run: npm ci
+
+      - name: Apply development database migrations
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}
+        run: npx prisma migrate deploy
 
       - name: Build
         run: vercel build --token="$VERCEL_TOKEN"
@@ -79,6 +89,8 @@ jobs:
           url="$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Deployed to $url"
+          echo "### Shareable test deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Smoke test
         run: |
