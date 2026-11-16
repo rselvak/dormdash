@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!parent) return NextResponse.json({ error: "Complete registration first" }, { status: 403 });
     const { id } = await params;
     const event = await prisma.event.findUnique({ where: { id }, include: { participants: { where: { parentId: parent.id }, select: { parentId: true } } } });
-    if (!event || (event.parentId !== parent.id && !(event.status === "CANCELLED" && event.participants?.length) && ((event.status !== "PUBLISHED" && event.status !== "CANCELLED") || !event.collegeKey || !parent.students.some(student => collegeKey(student.college) === event.collegeKey)))) {
+    if (!event || (event.parentId !== parent.id && !((event.status === "PUBLISHED" || event.status === "CANCELLED") && event.participants?.length) && ((event.status !== "PUBLISHED" && event.status !== "CANCELLED") || !event.collegeKey || !parent.students.some(student => collegeKey(student.college) === event.collegeKey)))) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
     const eventUrl = new URL("/", request.url);

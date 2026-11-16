@@ -13,6 +13,7 @@ import { POST as cancelEvent } from "@/app/api/events/[id]/cancel/route";
 import { GET as notifications, PATCH as readNotification } from "@/app/api/notifications/route";
 import { GET as listEvents } from "@/app/api/events/route";
 import { GET as searchEvents } from "@/app/api/events/search/route";
+import { GET as myEvents } from "@/app/api/my-events/route";
 
 // Opt in with an explicitly selected disposable/development database, never DATABASE_URL.
 const url = process.env.DORMDASH_TEST_DATABASE_URL;
@@ -52,6 +53,68 @@ describe.skipIf(!url)("waiting list database flow", () => {
       await db.parent.deleteMany({ where: { clerkUserId: { startsWith: prefix } } });
       await db.$disconnect();
     }
+  });
+  it("separates organizing, accepted and waiting commitments and excludes unrelated events", async () => {
+    await join(1);await join(2);
+    const mine=(section:string)=>myEvents(new Request("http://localhost/api/my-events?section="+section));
+    as(0);
+    const organized=await (await mine("organizing")).json();
+    expect(organized.counts).toEqual({organizing:1,accepted:0,waiting:0,past:0});
+    expect(organized.events[0]).toMatchObject({id:eventId,isOwner:true});
+    as(1);
+    const accepted=await (await mine("accepted")).json();
+    expect(accepted.counts).toEqual({organizing:0,accepted:1,waiting:0,past:0});
+    expect(accepted.events[0]).toMatchObject({id:eventId,participationStatus:"ACCEPTED"});
+    as(2);
+    const waiting=await (await mine("waiting")).json();
+    expect(waiting.counts).toEqual({organizing:0,accepted:0,waiting:1,past:0});
+    expect(waiting.events[0]).toMatchObject({id:eventId,participationStatus:"WAITLISTED"});
+    as(3);
+    expect((await (await mine("organizing")).json()).counts).toEqual({organizing:0,accepted:0,waiting:0,past:0});
+    expect((await mine("invalid")).status).toBe(400);
+    expect((await myEvents(new Request("http://localhost/api/my-events?offset=-1"))).status).toBe(400);
+  });
+  it("paginates personal events without dropping older commitments", async () => {
+    await db.event.createMany({data:Array.from({length:26},(_,i)=>({parentId:parents[0].id,name:`${prefix}-page-${i}`,college,collegeKey:collegeKey(college),startsAt:new Date(Date.now()+86400000*(i+2)),type:"CARPOOL" as const,status:"DRAFT" as const,maxParticipants:2}))});
+    as(0);
+    const first=await (await myEvents(new Request("http://localhost/api/my-events?section=organizing"))).json();
+    expect(first.counts.organizing).toBe(27);
+    expect(first.events).toHaveLength(25);
+    expect(first.nextOffset).toBe(25);
+    const second=await (await myEvents(new Request("http://localhost/api/my-events?section=organizing&offset=25"))).json();
+    expect(second.events).toHaveLength(2);
+    expect(second.nextOffset).toBeNull();
+    expect(second.events.some((e:{id:string})=>first.events.some((f:{id:string})=>f.id===e.id))).toBe(false);
+  });
+  it("moves elapsed commitments to past while keeping an ongoing all-day event current", async () => {
+    await join(1);
+    await db.event.update({where:{id:eventId},data:{allDay:true,startsAt:new Date(Date.now()-3600000),endsAt:new Date(Date.now()+3600000)}});
+    as(1);
+    const mine=(section:string)=>myEvents(new Request("http://localhost/api/my-events?section="+section));
+    expect((await (await mine("accepted")).json()).counts).toMatchObject({accepted:1,past:0});
+    await db.event.update({where:{id:eventId},data:{endsAt:new Date(Date.now()-1000)}});
+    const past=await (await mine("past")).json();
+    expect(past.counts).toMatchObject({accepted:0,past:1});
+    expect(past.events[0].id).toBe(eventId);
+    as(0);
+    expect((await (await mine("past")).json()).counts).toMatchObject({organizing:0,past:1});
+  });
+  it("retains cancelled commitments and access after college changes but hides private drafts", async () => {
+    await join(1);
+    as(0);await cancelEvent(request("POST",{reason:"Weather"}),context());
+    as(1);
+    const mine=()=>myEvents(new Request("http://localhost/api/my-events?section=accepted"));
+    expect((await (await mine()).json()).events[0]).toMatchObject({id:eventId,status:"CANCELLED"});
+    const student=parents[1].students[0].id;
+    await db.student.update({where:{id:student},data:{college:"Another college"}});
+    try {
+      expect((await GET(request("GET"),context())).status).toBe(200);
+      await db.event.update({where:{id:eventId},data:{status:"PUBLISHED",cancellationReason:null,cancelledAt:null}});
+      expect((await GET(request("GET"),context())).status).toBe(200);
+      await db.event.update({where:{id:eventId},data:{status:"DRAFT"}});
+      expect((await GET(request("GET"),context())).status).toBe(404);
+      expect((await (await mine()).json()).events).toEqual([]);
+    } finally {await db.student.update({where:{id:student},data:{college}});}
   });
   it("cancels with a reason, notifies accepted and waitlisted parents once, and retains participation", async () => {
     await join(1);await join(2);
