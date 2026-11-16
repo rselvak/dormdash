@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RidePoolFields } from "@/components/ride-pool-fields";
 import { TripServiceChoices } from "@/components/trip-service-choices";
 import { ShareToWhatsApp } from "@/components/share-to-whatsapp";
 import { type TripService, serviceSummary } from "@/lib/trip-services";
@@ -20,6 +21,8 @@ export function EventDetailsDialog({ eventId: activeId, colleges, onClose, onCha
   const [cancellationReason,setCancellationReason]=useState("");
   const [busy,setBusy]=useState(false);
   const [panelError,setPanelError]=useState("");
+  const [origin,setOrigin]=useState("");
+  const [destination,setDestination]=useState("");
   const [instructions,setInstructions]=useState("");
   const [name,setName]=useState("");
   const [college,setCollege]=useState("");
@@ -39,7 +42,7 @@ export function EventDetailsDialog({ eventId: activeId, colleges, onClose, onCha
   const [now,setNow]=useState(()=>Date.now());
   const dialogRef=useRef<HTMLElement>(null);
   const openEvent=useCallback(async(id:string)=>{
-    try {const data=await readApi(await fetch(`/api/events/${encodeURIComponent(id)}`,{cache:"no-store"}));setNow(Date.now());setPanelError("");setEditing(false);setDetail(data.event);setStudents(data.students);setStudentId(data.event.selectedStudentId||"");setName(data.event.name);setInstructions(data.event.instructions||"");setEventColor(eventColorStyle(data.event.color,data.event.type).backgroundColor);setDorm(data.event.dorm||"");setMajor(data.event.major||"");setCollege(data.event.college||"");setType(data.event.type);setServices(data.event.services??[]);setRequestedServices(data.event.requestedServices??[]);setStatus(data.event.status==="CANCELLED"?"PUBLISHED":data.event.status);setMaxParticipants(String(data.event.maxParticipants));setWaitingListAllowed(data.event.waitingListAllowed);setMaxWaitingList(data.event.maxWaitingList==null?"":String(data.event.maxWaitingList));setAllDay(data.event.allDay);setDateTime(data.event.allDay?eventDay(data.event)+"T00:00":toLocalInput(data.event.startsAt));setDueAt(data.event.dueAt?toLocalInput(data.event.dueAt):"");}catch(e){setPanelError(e instanceof Error?e.message:"Unable to open event");}
+    try {const data=await readApi(await fetch(`/api/events/${encodeURIComponent(id)}`,{cache:"no-store"}));setNow(Date.now());setPanelError("");setEditing(false);setDetail(data.event);setStudents(data.students);setStudentId(data.event.selectedStudentId||"");setName(data.event.name);setOrigin(data.event.origin||"");setDestination(data.event.destination||"");setInstructions(data.event.instructions||"");setEventColor(eventColorStyle(data.event.color,data.event.type).backgroundColor);setDorm(data.event.dorm||"");setMajor(data.event.major||"");setCollege(data.event.college||"");setType(data.event.type);setServices(data.event.services??[]);setRequestedServices(data.event.requestedServices??[]);setStatus(data.event.status==="CANCELLED"?"PUBLISHED":data.event.status);setMaxParticipants(String(data.event.maxParticipants));setWaitingListAllowed(data.event.waitingListAllowed);setMaxWaitingList(data.event.maxWaitingList==null?"":String(data.event.maxWaitingList));setAllDay(data.event.allDay);setDateTime(data.event.allDay?eventDay(data.event)+"T00:00":toLocalInput(data.event.startsAt));setDueAt(data.event.dueAt?toLocalInput(data.event.dueAt):"");}catch(e){setPanelError(e instanceof Error?e.message:"Unable to open event");}
   },[]);
 
   useEffect(()=>{
@@ -71,7 +74,7 @@ export function EventDetailsDialog({ eventId: activeId, colleges, onClose, onCha
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name,instructions:instructions.trim()||null,color:eventColor,
+            name,origin:type==="CARPOOL"?origin.trim():null,destination:type==="CARPOOL"?destination.trim():null,instructions:instructions.trim()||null,color:eventColor,
             college,
             dorm: dorm.trim() || null,
             major: major.trim() || null,
@@ -120,6 +123,7 @@ export function EventDetailsDialog({ eventId: activeId, colleges, onClose, onCha
       {!detail&&!panelError&&<p className="mt-4 text-muted">Loading event...</p>}
       {detail&&<div className="mt-6 space-y-5">
         <div><h3 className="text-2xl font-semibold">{detail.name}</h3><p className="mt-1 text-sm text-muted">{detail.college||"College not assigned"}  |  {types.find(t=>t.value===detail.type)?.label}  |  {eventDateLabel(detail)}</p><p className="text-sm text-muted">{[detail.dorm&&"Dorm: "+detail.dorm,detail.major&&"Major: "+detail.major].filter(Boolean).join("  |  ")}</p><p className="text-sm text-muted">{detail.status==="CANCELLED"?"Cancelled event":detail.status==="DRAFT"?"Private draft":"Published event"}</p></div>
+        {detail.type==="CARPOOL"&&<div className="grid gap-2 rounded-lg border border-border p-4 text-sm"><p><strong>Origin:</strong> {detail.origin||"Not provided"}</p><p><strong>Destination:</strong> {detail.destination||"Not provided"}</p></div>}
         {detail.instructions&&<section aria-label="Event instructions" className="rounded-lg border border-border bg-accent/5 p-4"><h3 className="text-sm font-semibold">Instructions</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm">{detail.instructions}</p></section>}
         <div className="grid grid-cols-2 gap-3"><div className="rounded-lg border p-3"><p className="text-xs text-muted">Participating</p><p className="text-2xl font-semibold">{detail.participantCount}</p></div><div className="rounded-lg border p-3"><p className="text-xs text-muted">Slots left</p><p className="text-2xl font-semibold">{Math.max(0,detail.maxParticipants-detail.participantCount)}</p><p className="text-xs text-muted">of {detail.maxParticipants} total</p></div></div>
         <p className="text-sm">{detail.dueAt?new Date(detail.dueAt).getTime()>now?`${Math.ceil((new Date(detail.dueAt).getTime()-now)/86400000)} day(s) left to respond  |  Respond by ${new Date(detail.dueAt).toLocaleString()}`:"Response deadline passed":`No separate joining deadline  |  Event starts ${new Date(detail.startsAt).toLocaleString()}`}</p>
@@ -153,6 +157,7 @@ export function EventDetailsDialog({ eventId: activeId, colleges, onClose, onCha
         <label className="text-sm">Name<input className="mt-1 w-full rounded-lg border bg-background p-2" required value={name} onChange={e=>setName(e.target.value)}/></label>
         <label className="text-sm">College *<select required className="mt-1 w-full rounded-lg border bg-background p-2" value={college} onChange={e=>{setCollege(e.target.value);setDorm("");setMajor("")}}><option value="">Select college</option>{colleges.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
         <label className="text-sm">Major (optional)<select disabled={!college} value={major} onChange={e=>setMajor(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-background p-2 disabled:opacity-50"><option value="">{college?"All majors":"Choose a college first"}</option>{major&&!majorOptions.includes(major)&&<option value={major}>{major} (previously saved)</option>}{majorOptions.map(m=><option key={m} value={m}>{m}</option>)}</select></label>
+        {type==="CARPOOL"&&<RidePoolFields origin={origin} destination={destination} onOriginChange={setOrigin} onDestinationChange={setDestination}/> }
         {type==="COLLEGE_PICKUP"&&<TripServiceChoices value={services} onChange={setServices}/>}
         <label className="text-sm sm:col-span-2">Instructions (optional)<textarea rows={4} maxLength={4000} value={instructions} onChange={e=>setInstructions(e.target.value)} placeholder="Add meeting points, package handover details, or other instructions." className="mt-1 w-full rounded-lg border border-border bg-background p-2"/></label>
         <EventColorPicker value={eventColor} onChange={setEventColor}/>

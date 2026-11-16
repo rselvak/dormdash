@@ -3,7 +3,7 @@
 import { type CalendarEvent, eventDateLabel, eventTypes } from "@/lib/event-ui";
 import { serviceSummary } from "@/lib/trip-services";
 
-export type ShareableEvent = Pick<CalendarEvent, "id" | "name" | "type" | "status" | "startsAt" | "allDay" | "timeZone" | "college" | "dorm" | "dueAt" | "services">;
+export type ShareableEvent = Pick<CalendarEvent, "origin" | "destination" | "id" | "name" | "type" | "status" | "startsAt" | "allDay" | "timeZone" | "college" | "dorm" | "dueAt" | "services">;
 
 export function ShareToWhatsApp({ event, isOwner }: { event: ShareableEvent; isOwner: boolean }) {
   if (!isOwner || event.status !== "PUBLISHED") return null;
@@ -15,6 +15,8 @@ export function ShareToWhatsApp({ event, isOwner }: { event: ShareableEvent; isO
       event.name,
       eventTypes.find(type => type.value === event.type)?.label,
       eventDateLabel(event),
+      event.type === "CARPOOL" && event.origin ? `Origin: ${event.origin}` : null,
+      event.type === "CARPOOL" && event.destination ? `Destination: ${event.destination}` : null,
       [event.college, event.dorm].filter(Boolean).join(" · "),
       event.services.length ? `Services offered: ${serviceSummary(event.services)}` : null,
       event.dueAt ? `Respond to event by: ${new Date(event.dueAt).toLocaleString()}` : null,

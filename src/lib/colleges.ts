@@ -1,4 +1,5 @@
 import collegeData from "@/data/california-colleges.json";
+import housingData from "@/data/college-housing.json";
 
 /**
  * California colleges and the undergraduate programs each one offers.
@@ -26,7 +27,15 @@ export const COLLEGES: readonly College[] = collegeData.colleges.map(
 
 const collegesByName = new Map(COLLEGES.map((college) => [college.name, college]));
 
-export const COLLEGE_OPTIONS = COLLEGES.map((college) => ({
+const housingColleges = new Set(housingData.campuses.filter(campus => campus.residences.length > 0).map(campus => campus.college));
+export const REGISTRATION_COLLEGES = COLLEGES.filter(college => college.majors.length > 0 && housingColleges.has(college.name));
+const registrationCollegeNames = new Set(REGISTRATION_COLLEGES.map(college => college.name));
+
+export function isRegistrationCollege(name: string): boolean {
+  return registrationCollegeNames.has(name.trim());
+}
+
+export const COLLEGE_OPTIONS = REGISTRATION_COLLEGES.map((college) => ({
   value: college.name,
   label: college.name,
   description: college.city,

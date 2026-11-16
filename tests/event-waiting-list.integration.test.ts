@@ -42,7 +42,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
     await db.event.deleteMany({ where: { parentId: { in: parents.map(p => p.id) } } });
     const event = await db.event.create({ data: {
       parentId: parents[0].id, name: prefix, college, collegeKey: collegeKey(college),
-      startsAt: new Date(Date.now() + 86400000), type: "CARPOOL", status: "PUBLISHED",
+      startsAt: new Date(Date.now() + 86400000), type: "CARPOOL", origin: "San Jose", destination: "Stanford", status: "PUBLISHED",
       maxParticipants: 2, waitingListAllowed: true, maxWaitingList: 2,
       participants: { create: { parentId: parents[0].id } },
     } });
@@ -162,7 +162,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
     const results=await (await searchEvents(new Request("http://localhost/api/events/search?college="+encodeURIComponent(college)))).json();
     expect(results.events.find((e:{id:string})=>e.id===eventId)).toMatchObject({status:"CANCELLED",cancellationReason:"Weather"});
     const event=await db.event.findUniqueOrThrow({where:{id:eventId}});
-    expect((await PATCH(request("PATCH",{name:event.name,college,type:event.type,services:[],status:"PUBLISHED",startsAt:event.startsAt.toISOString(),dueAt:null,maxParticipants:2,waitingListAllowed:true,maxWaitingList:2}),context())).status).toBe(409);
+    expect((await PATCH(request("PATCH",{name:event.name,college,type:event.type,origin:"San Jose",destination:"Stanford",services:[],status:"PUBLISHED",startsAt:event.startsAt.toISOString(),dueAt:null,maxParticipants:2,waitingListAllowed:true,maxWaitingList:2}),context())).status).toBe(409);
     expect((await db.event.findUniqueOrThrow({where:{id:eventId}})).status).toBe("CANCELLED");
   });
   it("serializes cancellation with concurrent joins and notifies every successful join", async () => {
@@ -203,7 +203,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
     const event=await db.event.findUniqueOrThrow({where:{id:eventId}});
     const dueAt=new Date(Date.now()+1800000).toISOString();
     as(0);
-    expect((await PATCH(request("PATCH",{name:prefix,college,type:"CARPOOL",status:"PUBLISHED",maxParticipants:2,waitingListAllowed:true,maxWaitingList:2,allDay:true,startsAt:event.startsAt.toISOString(),endsAt:event.endsAt!.toISOString(),dueAt}),context())).status).toBe(200);
+    expect((await PATCH(request("PATCH",{name:prefix,college,type:"CARPOOL",origin:"San Jose",destination:"Stanford",status:"PUBLISHED",maxParticipants:2,waitingListAllowed:true,maxWaitingList:2,allDay:true,startsAt:event.startsAt.toISOString(),endsAt:event.endsAt!.toISOString(),dueAt}),context())).status).toBe(200);
     expect((await (await GET(request("GET"),context())).json()).event.dueAt).toBe(dueAt);
     expect((await join(1)).status).toBe(201);
     await db.event.update({where:{id:eventId},data:{dueAt:new Date(Date.now()-1000)}});
@@ -214,7 +214,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
   });
   it("requires event type, college, and capacity when creating an event",async()=>{
     as(0);
-    const valid={name:prefix,college,type:"CARPOOL",maxParticipants:2,startsAt:new Date(Date.now()+86400000).toISOString()};
+    const valid={name:prefix,college,type:"CARPOOL",origin:"San Jose",destination:"Stanford",maxParticipants:2,startsAt:new Date(Date.now()+86400000).toISOString()};
     for(const key of ["college","type","maxParticipants"] as const){
       const body={...valid,[key]:undefined};
       expect((await createEvent(request("POST",body))).status).toBe(400);
@@ -297,7 +297,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
   });
   it("capacity increases promote waiting users and edits cannot remove existing waiting users", async () => {
     await join(1); await join(2); await join(3);
-    const body = { name: prefix, college, startsAt: new Date(Date.now() + 86400000).toISOString(), dueAt: null, type: "CARPOOL", status: "PUBLISHED", maxParticipants: 2, waitingListAllowed: false };
+    const body = { name: prefix, college, startsAt: new Date(Date.now() + 86400000).toISOString(), dueAt: null, type: "CARPOOL", origin: "San Jose", destination: "Stanford", status: "PUBLISHED", maxParticipants: 2, waitingListAllowed: false };
     as(0);
     expect((await PATCH(request("PATCH", body), context())).status).toBe(409);
     expect((await PATCH(request("PATCH", { ...body, waitingListAllowed: true, maxWaitingList: 1 }), context())).status).toBe(409);
@@ -306,16 +306,31 @@ describe.skipIf(!url)("waiting list database flow", () => {
   });
   it("creates an event with waiting list settings", async () => {
     as(0);
-    const response = await createEvent(request("POST", { name: prefix, college, instructions: "Meet at the main gate.\nBring labelled packages.", color: "#db2777", startsAt: new Date(Date.now() + 86400000).toISOString(), type: "CARPOOL", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 }));
+    const response = await createEvent(request("POST", { name: prefix, college, instructions: "Meet at the main gate.\nBring labelled packages.", color: "#db2777", startsAt: new Date(Date.now() + 86400000).toISOString(), type: "CARPOOL", origin: "San Jose", destination: "Stanford", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 }));
     expect(response.status).toBe(201);
     const body = await response.json();
     expect(body.event).toMatchObject({ waitingListAllowed: true, maxWaitingList: 3, color: "#db2777", instructions: "Meet at the main gate.\nBring labelled packages." });
     eventId = body.event.id;
     expect((await (await GET(request("GET"), context())).json()).event.color).toBe("#db2777");
-    const update = { name: prefix, college, instructions: "Meet at the north gate.", color: "#0891b2", startsAt: body.event.startsAt, dueAt: null, type: "CARPOOL", status: "PUBLISHED", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 };
+    const update = { name: prefix, college, instructions: "Meet at the north gate.", color: "#0891b2", startsAt: body.event.startsAt, dueAt: null, type: "CARPOOL", origin: "San Jose", destination: "Stanford", status: "PUBLISHED", maxParticipants: 1, waitingListAllowed: true, maxWaitingList: 3 };
     expect((await PATCH(request("PATCH", update), context())).status).toBe(200);
     const updated=(await (await GET(request("GET"), context())).json()).event;
     expect(updated.color).toBe("#0891b2");
     expect(updated.instructions).toBe("Meet at the north gate.");
+  });
+  it("validates and stores Ride Pool locations on creation and edits", async () => {
+    as(0);
+    const body={name:prefix,college,type:"CARPOOL",status:"PUBLISHED",startsAt:new Date(Date.now()+86400000).toISOString(),dueAt:null,maxParticipants:3,origin:" San Jose ",destination:" Stanford "};
+    expect((await createEvent(request("POST",{...body,origin:" "}))).status).toBe(400);
+    expect((await createEvent(request("POST",{...body,destination:null}))).status).toBe(400);
+    const created=await createEvent(request("POST",body));
+    expect(created.status).toBe(201);
+    const saved=(await created.json()).event;eventId=saved.id;
+    expect(saved).toMatchObject({origin:"San Jose",destination:"Stanford"});
+    expect((await PATCH(request("PATCH",{...body,destination:""}),context())).status).toBe(400);
+    expect((await PATCH(request("PATCH",{...body,origin:" Oakland "}),context())).status).toBe(200);
+    expect((await (await GET(request("GET"),context())).json()).event).toMatchObject({origin:"Oakland",destination:"Stanford"});
+    expect((await PATCH(request("PATCH",{...body,type:"VANPOOL"}),context())).status).toBe(200);
+    expect(await db.event.findUnique({where:{id:eventId}})).toMatchObject({origin:null,destination:null});
   });
 });

@@ -4,7 +4,7 @@ import { serviceSummary, type TripService } from "@/lib/trip-services";
 type CalendarDownloadEvent = {
   id: string; name: string; startsAt: Date; endsAt: Date | null; allDay: boolean; timeZone: string;
   updatedAt: Date; status: string; type: string; college: string | null; dorm: string | null;
-  instructions: string | null; cancellationReason?: string | null; dueAt: Date | null; services: TripService[];
+  origin?: string | null; destination?: string | null; instructions: string | null; cancellationReason?: string | null; dueAt: Date | null; services: TripService[];
 };
 
 // RFC 5545 text escaping prevents line breaks in event content from creating properties.
@@ -36,6 +36,8 @@ export function eventCalendarFile(event: CalendarDownloadEvent, eventUrl: string
     `Event type: ${type}`,
     event.status === "CANCELLED" ? `Cancelled: ${event.cancellationReason || "Contact the organizer for details."}` : null,
     event.instructions,
+    event.type === "CARPOOL" && event.origin ? `Origin: ${event.origin}` : null,
+    event.type === "CARPOOL" && event.destination ? `Destination: ${event.destination}` : null,
     event.services.length ? `Services offered: ${serviceSummary(event.services)}` : null,
     event.dueAt ? `Respond to event by: ${event.dueAt.toLocaleString("en-US", { timeZone: event.timeZone })} (${event.timeZone})` : null,
     `Event details: ${eventUrl}`,

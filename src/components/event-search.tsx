@@ -9,8 +9,7 @@ import { EventDetailsDialog } from "@/components/event-details-dialog";
 
 const eventTypes = [
   ["", "All event types"], ["COLLEGE_PICKUP", "Trip To College"], ["COLLEGE_DROP_OFF", "Trip From College"],
-  ["CARPOOL", "Carpool"], ["VANPOOL", "Vanpool"], ["BUSPOOL", "Buspool"],
-  ["ANNOUNCEMENT", "Announcement"],
+  ["CARPOOL", "Ride Pool"], ["VANPOOL", "Amtrak"], ["BUSPOOL", "Buspool"],
 ] as const;
 type Result = {status:"PUBLISHED"|"CANCELLED";cancellationReason:string|null;allDay:boolean;timeZone:string; color: string | null; id: string; name: string; college: string | null; dorm: string | null; major: string | null; type: string; startsAt: string; participantCount: number; maxParticipants: number };
 
