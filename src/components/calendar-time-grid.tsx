@@ -1,5 +1,6 @@
 "use client";
 
+import { isPastEvent } from "@/lib/event-policy";
 import { useEffect, useRef } from "react";
 import { eventColorStyle } from "@/lib/event-color";
 import { eventDay, localDate, type CalendarEvent } from "@/lib/event-ui";
@@ -37,8 +38,8 @@ export function CalendarTimeGrid({ dates, events, onOpen, onCreate }: {
         <div className="grid border-b border-border" style={{ gridTemplateColumns: columns }}>
           <span className="p-2 text-right text-xs text-muted">All day</span>
           {dates.map(date => <div key={localDate(date)} className="space-y-1 border-l border-border p-1">
-            {events.filter(event => event.allDay && eventDay(event) === localDate(date)).map(event => <button key={event.id} type="button" onClick={() => onOpen(event.id)} style={eventColorStyle(event.color, event.type)} className="block w-full truncate rounded px-2 py-1 text-left text-xs font-medium" title={eventName(event)}>{eventName(event)}</button>)}
-            <button type="button" onClick={() => onCreate(localDate(date), undefined, true)} className="w-full rounded px-1 text-left text-xs text-muted hover:bg-accent/10" aria-label={"Create all-day event on " + localDate(date)}>+</button>
+            {events.filter(event => event.allDay && eventDay(event) === localDate(date)).map(event => <button key={event.id} type="button" onClick={() => onOpen(event.id)} style={isPastEvent(event)?{backgroundColor:"#e5e7eb",color:"#6b7280",filter:"grayscale(1)"}:eventColorStyle(event.color, event.type)} className="block w-full truncate rounded px-2 py-1 text-left text-xs font-medium" title={eventName(event)}>{eventName(event)}</button>)}
+            <button type="button" disabled={localDate(date)<today} onClick={e => {if(e.detail===0)onCreate(localDate(date), undefined, true)}} onDoubleClick={() => onCreate(localDate(date), undefined, true)} className="w-full rounded px-1 text-left text-xs text-muted hover:bg-accent/10" aria-label={"Create all-day event on " + localDate(date)}>+</button>
           </div>)}
         </div>
       </div>
@@ -48,8 +49,8 @@ export function CalendarTimeGrid({ dates, events, onOpen, onCreate }: {
           const day = localDate(date);
           const timed = events.filter(event => !event.allDay && eventDay(event) === day);
           return <div key={day} className={"relative h-[1536px] border-l border-border " + (day === today ? "bg-accent/5" : "")}>
-            {Array.from({ length: 24 }, (_, hour) => <button key={hour} type="button" onClick={() => onCreate(day, hour)} aria-label={`Create event on ${day} at ${hour}:00`} className="block h-16 w-full border-t border-border text-left hover:bg-accent/10 focus-visible:bg-accent/10 focus-visible:outline-2 focus-visible:outline-accent"><span className="block h-8 border-b border-dashed border-border/50" /></button>)}
-            {timedEventLayout(timed).map(({ event, minute, duration, column, columns: count }) => <button key={event.id} type="button" onClick={() => onOpen(event.id)} title={`${calendarEventTime(event)} · ${eventName(event)}`} className="absolute z-10 overflow-hidden rounded border border-card px-1 py-0.5 text-left text-[11px] leading-tight shadow-sm hover:brightness-95 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-accent" style={{ ...eventColorStyle(event.color, event.type), top: minute / 60 * 64, height: duration / 60 * 64, left: `${column / count * 100}%`, width: `${100 / count}%` }}>
+            {Array.from({ length: 24 }, (_, hour) => <button key={hour} type="button" disabled={new Date(day+"T"+String(hour).padStart(2,"0")+":00").getTime()<=Date.now()} onClick={e => {if(e.detail===0)onCreate(day,hour)}} onDoubleClick={() => onCreate(day,hour)} aria-label={`Create event on ${day} at ${hour}:00`} className="block h-16 w-full border-t border-border text-left disabled:bg-accent/5 disabled:cursor-not-allowed hover:bg-accent/10 focus-visible:bg-accent/10 focus-visible:outline-2 focus-visible:outline-accent"><span className="block h-8 border-b border-dashed border-border/50" /></button>)}
+            {timedEventLayout(timed).map(({ event, minute, duration, column, columns: count }) => <button key={event.id} type="button" onClick={() => onOpen(event.id)} title={`${calendarEventTime(event)} · ${eventName(event)}`} className="absolute z-10 overflow-hidden rounded border border-card px-1 py-0.5 text-left text-[11px] leading-tight shadow-sm hover:brightness-95 focus-visible:z-20 focus-visible:outline-2 focus-visible:outline-accent" style={{ ...(isPastEvent(event)?{backgroundColor:"#e5e7eb",color:"#6b7280",filter:"grayscale(1)"}:eventColorStyle(event.color, event.type)), top: minute / 60 * 64, height: duration / 60 * 64, left: `${column / count * 100}%`, width: `${100 / count}%` }}>
               <span className="block truncate font-semibold">{calendarEventTime(event)} · {eventName(event)}</span>
             </button>)}
           </div>;

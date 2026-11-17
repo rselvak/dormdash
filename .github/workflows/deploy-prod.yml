@@ -69,10 +69,13 @@ jobs:
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
 
-      # Run production migrations here once Prisma is wired up, for example:
-      #   npx prisma migrate deploy
-      # Keep migrations backwards compatible (expand/contract) so rolling back
-      # the deployment never breaks the previous version of the code.
+      - name: Install app dependencies
+        run: npm ci
+
+      # Use the production environment pulled from Vercel, never a local/test URL.
+      # Migrations must remain additive so the previous app version can still run.
+      - name: Apply production database migrations
+        run: node scripts/dev/migrate-production.mjs
 
       - name: Build
         run: vercel build --prod --token="$VERCEL_TOKEN"

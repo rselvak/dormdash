@@ -1,3 +1,4 @@
+import { isPastEvent } from "@/lib/event-policy";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/db";
@@ -9,7 +10,7 @@ import { promoteWaitingList } from "@/lib/event-participation";
 import { tripServicesSchema } from "@/lib/trip-services";
 
 type Context={params:Promise<{id:string}>};
-const schema=z.object({studentId:z.string().trim().min(1),requestedServices:tripServicesSchema.default([])});
+const schema=z.object({selectedStop:z.string().trim().min(1).max(120).nullable().optional(),studentId:z.string().trim().min(1),requestedServices:tripServicesSchema.default([])});
 export async function POST(request:Request,{params}:Context) {
   try {
     const {userId}=await auth();
@@ -25,6 +26,8 @@ export async function POST(request:Request,{params}:Context) {
       if(!event) return {status:404,error:"Event not found"};
       if(event.status==="CANCELLED") return {status:409,error:"This event has been cancelled"};
       if(event.status!=="PUBLISHED" || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)) return {status:404,error:"Event not found"};
+      if(isPastEvent(event))return {status:409,error:"Past events are read-only"};
+      if(event.type==="BUSPOOL" && (!parsed.data.selectedStop || !event.busStops.includes(parsed.data.selectedStop)))return {status:400,error:"Select one of the bus stops for this event"};
       const requestedServices=parsed.data.requestedServices;
       if(event.type==="COLLEGE_PICKUP" && (!requestedServices.length || requestedServices.some(service=>!event.services.includes(service)))) return {status:400,error:"Select at least one of the services offered for this trip"};
       if(event.type!=="COLLEGE_PICKUP" && requestedServices.length) return {status:400,error:"Service requests apply only to Trip To College"};
@@ -45,7 +48,7 @@ export async function POST(request:Request,{params}:Context) {
         if(!eligible || collegeKey(eligible.college)!==event.collegeKey) return {status:400,error:"Student must attend the event college"};
       }
       if(event.dueAt && event.dueAt.getTime()<=Date.now()) return {status:409,error:"The response deadline has passed"};
-      await tx.eventParticipant.create({data:{eventId:id,parentId:parent.id,studentId:parsed.data.studentId,requestedServices,status:participationStatus,joinedAt:new Date()}});
+      await tx.eventParticipant.create({data:{eventId:id,parentId:parent.id,studentId:parsed.data.studentId,selectedStop:event.type==="BUSPOOL"?parsed.data.selectedStop:null,requestedServices,status:participationStatus,joinedAt:new Date()}});
       return {status:201,participationStatus};
     });
     return NextResponse.json(result.status===201?{ok:true,participationStatus:result.participationStatus}:{error:result.error},{status:result.status});
@@ -62,8 +65,9 @@ export async function DELETE(_request: Request, { params }: Context) {
     const { id } = await params;
     const result = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${id} FOR UPDATE`;
-      const event = await tx.event.findUnique({ where: { id }, select: { maxParticipants: true, status: true } });
+      const event = await tx.event.findUnique({ where: { id }, select: { startsAt:true,endsAt:true,allDay:true,maxParticipants: true, status: true } });
       if (!event) return { status: 404, error: "Event not found" };
+      if (isPastEvent(event)) return {status:409,error:"Past events are read-only"};
       if (event.status === "CANCELLED") return { status: 409, error: "This event has been cancelled; participation records are retained" };
       const mine = await tx.eventParticipant.findUnique({ where: { eventId_parentId: { eventId: id, parentId: parent.id } } });
       if (!mine) return { status: 404, error: "You have not joined this event" };

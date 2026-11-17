@@ -1,3 +1,4 @@
+import { isPastEvent } from "@/lib/event-policy";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -18,9 +19,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const result = await prisma.$transaction(async tx => {
       // Serialize with joins, withdrawals and edits so nobody joins after cancellation.
       await tx.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${id} FOR UPDATE`;
-      const event = await tx.event.findUnique({ where: { id }, select: { parentId: true, status: true, participants: { select: { parentId: true } } } });
+      const event = await tx.event.findUnique({ where: { id }, select: { startsAt:true,endsAt:true,allDay:true,parentId: true, status: true, participants: { select: { parentId: true } } } });
       if (!event) return { status: 404, error: "Event not found" };
       if (event.parentId !== parent.id) return { status: 403, error: "Only the organizer can cancel this event" };
+      if (isPastEvent(event)) return {status:409,error:"Past events are read-only"};
       if (event.status === "CANCELLED") return { status: 200 };
       if (event.status !== "PUBLISHED") return { status: 409, error: "Only published events can be cancelled" };
       await tx.event.update({ where: { id }, data: { status: "CANCELLED", cancellationReason: parsed.data.reason, cancelledAt: new Date() } });

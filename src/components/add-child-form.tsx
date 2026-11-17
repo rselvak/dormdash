@@ -61,7 +61,7 @@ export function AddChildForm() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/profile");
     router.refresh();
   }
 
@@ -85,7 +85,7 @@ export function AddChildForm() {
       <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <button
           type="button"
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push("/profile")}
           className="inline-flex h-12 items-center justify-center rounded-full px-5 text-sm font-medium text-muted transition-colors hover:text-foreground"
         >
           Cancel

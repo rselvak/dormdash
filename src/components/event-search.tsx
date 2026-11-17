@@ -1,5 +1,6 @@
 "use client";
 
+import { isPastEvent } from "@/lib/event-policy";
 import { useMemo, useState } from "react";
 import { DormSelect } from "@/components/dorm-select";
 import { getCollegeMajors } from "@/lib/colleges";
@@ -9,9 +10,9 @@ import { EventDetailsDialog } from "@/components/event-details-dialog";
 
 const eventTypes = [
   ["", "All event types"], ["COLLEGE_PICKUP", "Trip To College"], ["COLLEGE_DROP_OFF", "Trip From College"],
-  ["CARPOOL", "Ride Pool"], ["VANPOOL", "Amtrak"], ["BUSPOOL", "Buspool"],
+  ["CARPOOL", "Ride Pool"], ["VANPOOL", "Public Transport"], ["BUSPOOL", "Buspool"],
 ] as const;
-type Result = {status:"PUBLISHED"|"CANCELLED";cancellationReason:string|null;allDay:boolean;timeZone:string; color: string | null; id: string; name: string; college: string | null; dorm: string | null; major: string | null; type: string; startsAt: string; participantCount: number; maxParticipants: number };
+type Result = { endsAt?:string|null; createdBy?:string;status:"PUBLISHED"|"CANCELLED";cancellationReason:string|null;allDay:boolean;timeZone:string; color: string | null; id: string; name: string; college: string | null; dorm: string | null; major: string | null; type: string; startsAt: string; participantCount: number; maxParticipants: number };
 
 export function EventSearch({ colleges, studentCount }: { colleges: string[]; studentCount: number }) {
   const [college, setCollege] = useState(studentCount === 1 ? colleges[0] ?? "" : "");
@@ -99,9 +100,9 @@ export function EventSearch({ colleges, studentCount }: { colleges: string[]; st
     {searched && <section aria-live="polite" className="rounded-2xl border-2 border-emerald-500 bg-emerald-50/30 p-5 dark:border-emerald-400 dark:bg-emerald-950/15"><h2 className="mb-3 text-lg font-semibold">{events.length} matching {events.length === 1 ? "event" : "events"}</h2>
       {events.length === 0 && <p className="text-sm text-muted">No events match these filters. Try a different date range or fewer filters.</p>}
       <p className="mb-3 text-xs text-muted">Select an event to view details and available actions.</p>
-      <div className="grid gap-3">{events.map((e, index) => <button key={e.id} type="button" onClick={() => setActiveId(e.id)} aria-label={`View details for ${e.name}`} style={{borderLeftColor:eventColorStyle(e.color,e.type).backgroundColor}} className={"w-full rounded-xl border-2 border-l-[6px] border-border p-5 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent "+(index%2===0?"bg-card":"bg-accent/5")}>
+      <div className="grid gap-3">{events.map((e, index) => <button key={e.id} type="button" onClick={() => setActiveId(e.id)} aria-label={`View details for ${e.name}`} style={{filter:isPastEvent(e)?"grayscale(1)":undefined,opacity:isPastEvent(e)?0.6:1,borderLeftColor:eventColorStyle(e.color,e.type).backgroundColor}} className={"w-full rounded-xl border-2 border-l-[6px] border-border p-5 text-left transition-colors hover:border-accent hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent "+(index%2===0?"bg-card":"bg-accent/5")}>
         <span className={"block font-semibold "+(e.status==="CANCELLED"?"text-red-700 dark:text-red-400":"")}>{e.status==="CANCELLED"?"Cancelled: ":""}{e.name}</span>{e.status==="CANCELLED"&&<span className="mt-1 block whitespace-pre-wrap break-words text-sm">Reason: {e.cancellationReason}</span>}
-        <span className="mt-2 block text-sm text-muted">{e.college} · {eventTypes.find(([value]) => value === e.type)?.[1] ?? e.type}</span>
+        <span className="mt-2 block text-sm text-muted">Created by {e.createdBy||"Organizer"} · {e.college} · {eventTypes.find(([value]) => value === e.type)?.[1] ?? e.type}</span>
         <span className="mt-1 block text-sm">{eventDateLabel(e)}</span>
         {(e.dorm || e.major) && <span className="mt-1 block text-sm text-muted">{[e.dorm && "Dorm: " + e.dorm, e.major && "Major: " + e.major].filter(Boolean).join(" · ")}</span>}
         <span className="mt-2 block text-xs text-muted">{e.participantCount} / {e.maxParticipants} participants</span>

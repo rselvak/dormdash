@@ -30,7 +30,10 @@ export async function GET(_request:Request,{params}:Context) {
       {header:"Student major",key:"major",width:44},
       {header:"Student dorm",key:"dorm",width:30},
       {header:"Parent 1 phone",key:"phone",width:22},
-      ...(event.type==="COLLEGE_PICKUP"?[{header:"Services requested",key:"requestedServices",width:44}]:[])
+      ...(event.type==="COLLEGE_PICKUP"?[{header:"Services requested",key:"requestedServices",width:44}]:[]),
+      ...(event.type==="BUSPOOL"?[{header:"Selected stop",key:"selectedStop",width:36}]:[]),
+      ...(["CARPOOL","COLLEGE_DROP_OFF","VANPOOL"].includes(event.type)?[{header:"Source",key:"origin",width:36},{header:"Destination",key:"destination",width:36}]:[]),
+      ...(event.type==="VANPOOL"?[{header:"Public transport type",key:"transportType",width:24}]:[])
     ];
     sheet.getRow(1).font={bold:true};
     for(const p of event.participants) {
@@ -39,7 +42,7 @@ export async function GET(_request:Request,{params}:Context) {
       // Keep the participant visible if no matching student registration exists.
       // These are student rows, not additional accepted places in the event.
       for(const student of students.length ? students : [null]) sheet.addRow({
-        requestedServices:p.requestedServices?.length?serviceSummary(p.requestedServices):"Not specified",status:p.status,joinedAt:p.joinedAt.toISOString(),name:p.parent.name,email:p.parent.email,
+        selectedStop:p.selectedStop??"",origin:event.origin??"",destination:event.destination??"",transportType:event.transportType??"",requestedServices:p.requestedServices?.length?serviceSummary(p.requestedServices):"Not specified",status:p.status,joinedAt:p.joinedAt.toISOString(),name:p.parent.name,email:p.parent.email,
         studentName:student?.name??"",
         college:student?.college??"",major:student?.major??"",dorm:student?.dorm??"",phone:p.parent.phone
       });

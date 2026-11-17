@@ -1,3 +1,4 @@
+import { ProfileEditor } from "@/components/profile-editor";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -99,7 +100,7 @@ export default async function ProfilePage() {
         </span>
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-semibold tracking-tight">
-            {name || "Welcome"}
+            {registration?.name || name || "Welcome"}
           </h1>
           <p className="truncate text-sm text-muted">
             {email ?? "Signed in"}
@@ -109,6 +110,7 @@ export default async function ProfilePage() {
 
       {registration ? (
         <>
+          <ProfileEditor profile={registration}/>
           <section
             aria-labelledby="family-heading"
             className="mt-8 rounded-2xl border border-border bg-card p-5 sm:p-6"

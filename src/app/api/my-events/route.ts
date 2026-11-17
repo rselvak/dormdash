@@ -24,13 +24,13 @@ export async function GET(request: Request) {
     const filters = myEventFilters(parent.id, new Date());
     const [events, ...counts] = await Promise.all([
       prisma.event.findMany({ where: filters[section], orderBy: [{ startsAt: section === "past" ? "desc" : "asc" }, { id: "asc" }], skip: offset, take: pageSize + 1,
-        select: { id: true, name: true, college: true, dorm: true, major: true, type: true, color: true, startsAt: true, allDay: true, timeZone: true, status: true, cancellationReason: true, parentId: true, maxParticipants: true,
+        select: { parent:{select:{name:true}},id: true, name: true, college: true, dorm: true, major: true, type: true, color: true, startsAt: true, allDay: true, timeZone: true, status: true, cancellationReason: true, parentId: true, maxParticipants: true,
           participants: { select: { parentId: true, status: true, joinedAt: true } } },
       }),
       ...myEventSections.map(key => prisma.event.count({ where: filters[key] })),
     ]);
     return NextResponse.json({
-      events: events.slice(0, pageSize).map(({ participants, parentId, ...event }) => ({ ...event, isOwner: parentId === parent.id, ...participationSummary(participants, parent.id) })),
+      events: events.slice(0, pageSize).map(({ participants, parentId, parent: organizer, ...event }) => ({ ...event, createdBy:organizer?.name??"Organizer", isOwner: parentId === parent.id, ...participationSummary(participants, parent.id) })),
       counts: Object.fromEntries(myEventSections.map((key, index) => [key, counts[index]])),
       nextOffset: events.length > pageSize ? offset + pageSize : null,
     }, { headers: { "Cache-Control": "private, no-store" } });
