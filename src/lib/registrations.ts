@@ -78,11 +78,11 @@ export async function addStudent(
 
   if (!parent) return null;
 
-  return getPrisma().student.create({
-    data: {
-      parentId: parent.id,
-      ...studentData(student),
-    },
+  return getPrisma().$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "Parent" WHERE "id" = ${parent.id} FOR UPDATE`;
+    const count = await tx.student.count({ where: { parentId: parent.id } });
+    if (count >= 10) throw new Error("You can register up to 10 students.");
+    return tx.student.create({ data: { parentId: parent.id, ...studentData(student) } });
   });
 }
 

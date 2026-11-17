@@ -94,6 +94,8 @@ model Event {
   instructions String?
   origin String?
   destination String?
+  transportType String?
+  busStops String[] @default([])
   college String?
   collegeKey String?
   dorm String?
@@ -143,6 +145,7 @@ model EventParticipant {
   eventId String
   parentId String
   studentId String?
+  selectedStop String?
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
   student Student? @relation(fields: [studentId], references: [id], onDelete: SetNull)

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({ auth: vi.fn(), db: null as unknown }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth }));
 vi.mock("@/lib/db", () => ({ getPrisma: () => mocks.db }));
 import { POST, DELETE } from "@/app/api/events/[id]/join/route";
-import { PATCH, GET } from "@/app/api/events/[id]/route";
+import { PATCH, GET, DELETE as deleteDraft } from "@/app/api/events/[id]/route";
 import { POST as createEvent } from "@/app/api/events/route";
 import { POST as cancelEvent } from "@/app/api/events/[id]/cancel/route";
 import { GET as notifications, PATCH as readNotification } from "@/app/api/notifications/route";
@@ -53,6 +53,36 @@ describe.skipIf(!url)("waiting list database flow", () => {
       await db.parent.deleteMany({ where: { clerkUserId: { startsWith: prefix } } });
       await db.$disconnect();
     }
+  });
+  it("stores Buspool stops, each selected stop, and the organizer's name", async () => {
+    as(0);
+    const response = await createEvent(request("POST", { name: prefix, college, type: "BUSPOOL", busStops: ["Campus", "Station"], selectedStop: "Campus", status: "PUBLISHED", startsAt: new Date(Date.now()+86400000).toISOString(), maxParticipants: 4 }));
+    expect(response.status).toBe(201);
+    eventId = (await response.json()).event.id;
+    as(1);
+    expect((await POST(request("POST", { studentId: parents[1].students[0].id, selectedStop: "Station" }), context())).status).toBe(201);
+    const detail = (await (await GET(request("GET"), context())).json()).event;
+    expect(detail).toMatchObject({ busStops: ["Campus", "Station"], selectedStop: "Station", createdBy: "Waiting list test" });
+    expect(await db.eventParticipant.findUnique({ where: { eventId_parentId: { eventId, parentId: parents[1].id } } })).toMatchObject({ selectedStop: "Station" });
+  });
+  it("deletes only future drafts owned by the signed-in parent", async () => {
+    await db.event.update({ where: { id: eventId }, data: { status: "DRAFT" } });
+    as(1);
+    expect((await deleteDraft(request("DELETE"), context())).status).toBe(403);
+    as(0);
+    expect((await deleteDraft(request("DELETE"), context())).status).toBe(200);
+    expect(await db.event.findUnique({ where: { id: eventId } })).toBeNull();
+    expect(await db.eventParticipant.count({ where: { eventId } })).toBe(0);
+  });
+  it("keeps past events unchanged when edited, cancelled or withdrawn", async () => {
+    await db.event.update({ where: { id: eventId }, data: { startsAt: new Date(Date.now()-86400000) } });
+    as(0);
+    const edit = { name: prefix, college, type: "CARPOOL", origin: "Home", destination: "Campus", status: "PUBLISHED", startsAt: new Date(Date.now()+86400000).toISOString(), dueAt: null, maxParticipants: 4 };
+    expect((await PATCH(request("PATCH", edit), context())).status).toBe(409);
+    expect((await cancelEvent(request("POST", { reason: "Weather" }), context())).status).toBe(409);
+    expect((await DELETE(request("DELETE"), context())).status).toBe(409);
+    expect(await db.event.findUnique({ where: { id: eventId } })).toMatchObject({ status: "PUBLISHED" });
+    expect(await db.eventParticipant.count({ where: { eventId } })).toBe(1);
   });
   it("separates organizing, accepted and waiting commitments and excludes unrelated events", async () => {
     await join(1);await join(2);
@@ -244,8 +274,8 @@ describe.skipIf(!url)("waiting list database flow", () => {
     as(1);
     for(const type of ["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUSPOOL","PACKAGE_DELIVERY","ANNOUNCEMENT"] as const){
       for(const maxParticipants of [1,2]){
-        await db.event.update({where:{id:eventId},data:{type,maxParticipants,dueAt:new Date(Date.now()-1000),services:type==="COLLEGE_PICKUP"?["PASSENGER_TRANSPORT"]:[]}});
-        const response=await POST(request("POST",{studentId:parents[1].students[0].id,requestedServices:type==="COLLEGE_PICKUP"?["PASSENGER_TRANSPORT"]:[]}),context());
+        await db.event.update({where:{id:eventId},data:{type,maxParticipants,busStops:type==="BUSPOOL"?["Campus"]:[],dueAt:new Date(Date.now()-1000),services:type==="COLLEGE_PICKUP"?["PASSENGER_TRANSPORT"]:[]}});
+        const response=await POST(request("POST",{studentId:parents[1].students[0].id,selectedStop:type==="BUSPOOL"?"Campus":undefined,requestedServices:type==="COLLEGE_PICKUP"?["PASSENGER_TRANSPORT"]:[]}),context());
         expect(response.status,`${type}, capacity ${maxParticipants}`).toBe(409);
       }
     }
@@ -330,7 +360,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
     expect((await PATCH(request("PATCH",{...body,destination:""}),context())).status).toBe(400);
     expect((await PATCH(request("PATCH",{...body,origin:" Oakland "}),context())).status).toBe(200);
     expect((await (await GET(request("GET"),context())).json()).event).toMatchObject({origin:"Oakland",destination:"Stanford"});
-    expect((await PATCH(request("PATCH",{...body,type:"VANPOOL"}),context())).status).toBe(200);
-    expect(await db.event.findUnique({where:{id:eventId}})).toMatchObject({origin:null,destination:null});
+    expect((await PATCH(request("PATCH",{...body,type:"VANPOOL",transportType:"TRAIN"}),context())).status).toBe(200);
+    expect(await db.event.findUnique({where:{id:eventId}})).toMatchObject({origin:"San Jose",destination:"Stanford",transportType:"TRAIN"});
   });
 });

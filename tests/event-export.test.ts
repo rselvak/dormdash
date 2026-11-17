@@ -14,6 +14,16 @@ const participant=(students:ReturnType<typeof student>[],selected:ReturnType<typ
 const request=()=>GET(new Request("http://localhost/api/events/event/export"),{params:Promise.resolve({id:"event"})});
 
 describe("participant Excel export",()=>{
+  it("includes each Buspool participant's selected stop in Excel",async()=>{
+    mocks.auth.mockResolvedValue({userId:"user"});
+    mocks.parent.mockResolvedValue({id:"owner",students:[]});
+    mocks.event.mockResolvedValue({name:"Bus trip",type:"BUSPOOL",parentId:"owner",collegeKey:"stanford university",participants:[{...participant([student("first")]),selectedStop:"Main Gate"}]});
+    const workbook=new ExcelJS.Workbook();
+    await workbook.xlsx.load(await (await request()).arrayBuffer());
+    const sheet=workbook.getWorksheet("Participants")!;
+    expect(sheet.getRow(1).getCell(10).value).toBe("Selected stop");
+    expect(sheet.getRow(2).getCell(10).value).toBe("Main Gate");
+  });
   beforeEach(()=>{
     vi.clearAllMocks();
     mocks.auth.mockResolvedValue({userId:"user"});

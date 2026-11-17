@@ -1,9 +1,9 @@
 import type { TripService } from "@/lib/trip-services";
 export type EventType = "COLLEGE_PICKUP"|"COLLEGE_DROP_OFF"|"CARPOOL"|"VANPOOL"|"BUSPOOL"|"PACKAGE_DELIVERY"|"ANNOUNCEMENT";
-export type CalendarEvent = {origin:string|null;destination:string|null;instructions:string|null;services:TripService[];requestedServices:TripService[];allDay:boolean;endsAt:string|null;timeZone:string;color:string|null;waitingListAllowed:boolean;maxWaitingList:number|null;waitingListCount:number;participationStatus:"ACCEPTED"|"WAITLISTED"|null;joinedAt:string|null;id:string;name:string;college:string|null;dorm:string|null;major:string|null;startsAt:string;type:EventType;status:"DRAFT"|"PUBLISHED"|"CANCELLED";cancellationReason:string|null;cancelledAt:string|null;isOwner:boolean;isJoined:boolean;participantCount:number;maxParticipants:number;dueAt:string|null;paymentRequired:boolean;totalCostCents:number|null;individualCostCents:number|null;};
+export type CalendarEvent = {transportType?:"TRAIN"|"BUS"|null;busStops?:string[];selectedStop?:string|null;createdBy?:string;origin:string|null;destination:string|null;instructions:string|null;services:TripService[];requestedServices:TripService[];allDay:boolean;endsAt:string|null;timeZone:string;color:string|null;waitingListAllowed:boolean;maxWaitingList:number|null;waitingListCount:number;participationStatus:"ACCEPTED"|"WAITLISTED"|null;joinedAt:string|null;id:string;name:string;college:string|null;dorm:string|null;major:string|null;startsAt:string;type:EventType;status:"DRAFT"|"PUBLISHED"|"CANCELLED";cancellationReason:string|null;cancelledAt:string|null;isOwner:boolean;isJoined:boolean;participantCount:number;maxParticipants:number;dueAt:string|null;paymentRequired:boolean;totalCostCents:number|null;individualCostCents:number|null;};
 export const eventTypes: {value:EventType;label:string}[] = [
   {value:"COLLEGE_PICKUP",label:"Trip To College"},{value:"COLLEGE_DROP_OFF",label:"Trip From College"},
-  {value:"CARPOOL",label:"Ride Pool"},{value:"VANPOOL",label:"Amtrak"},
+  {value:"CARPOOL",label:"Ride Pool"},{value:"VANPOOL",label:"Public Transport"},
   {value:"BUSPOOL",label:"Buspool"},
 ];
 export const localDate=(d:Date)=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,"0"),String(d.getDate()).padStart(2,"0")].join("-");

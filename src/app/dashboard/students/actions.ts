@@ -42,6 +42,7 @@ export async function addChild(input: unknown): Promise<ActionResult> {
     }
 
     revalidatePath("/dashboard");
+    revalidatePath("/profile");
     return { ok: true };
   } catch (error) {
     const uniqueMessage = describeUniqueError(error);

@@ -28,10 +28,10 @@ export default async function NewStudentPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-12">
       <Link
-        href="/dashboard"
+        href="/profile"
         className="text-xs font-medium text-muted underline-offset-4 hover:text-foreground hover:underline"
       >
-        ← Back to dashboard
+        ← Back to My Profile
       </Link>
 
       <h1 className="mt-3 text-2xl font-semibold tracking-tight">
