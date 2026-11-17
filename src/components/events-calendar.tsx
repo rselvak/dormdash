@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RidePoolFields } from "@/components/ride-pool-fields";
 import { TripServiceChoices } from "@/components/trip-service-choices";
 import { type TripService } from "@/lib/trip-services";
 import { DormSelect } from "@/components/dorm-select";
 import { getCollegeMajors } from "@/lib/colleges";
+import { calendarRange, calendarTitle, moveCalendar, type CalendarView } from "@/lib/calendar-view";
+import { CalendarTimeGrid, calendarEventTime } from "@/components/calendar-time-grid";
 
 import { EventColorPicker } from "@/components/event-color-picker";
 import { eventColorStyle } from "@/lib/event-color";
@@ -15,7 +17,9 @@ import { ShareToWhatsApp, type ShareableEvent } from "@/components/share-to-what
 import { type CalendarEvent as Event, type EventType, eventTypes as types, localDate, scheduleInput, eventDateLabel, eventDay, readApi } from "@/lib/event-ui";
 
 export function EventsCalendar() {
-  const [month,setMonth]=useState(()=>new Date(new Date().getFullYear(),new Date().getMonth(),1));
+  const [month,setMonth]=useState(()=>new Date());
+  const [view,setView]=useState<CalendarView>("month");
+  const loadSequence=useRef(0);
   const [events,setEvents]=useState<Event[]>([]);
   const [published,setPublished]=useState<Event[]>([]);
   const [colleges,setColleges]=useState<string[]>([]);
@@ -49,22 +53,26 @@ export function EventsCalendar() {
   const [now]=useState(()=>Date.now());
   const monthStart=new Date(month.getFullYear(),month.getMonth(),1);
   const load=useCallback(async()=>{
+    const sequence=++loadSequence.current;
     setLoading(true);setError("");
     try {
-      const start=new Date(month.getFullYear(),month.getMonth(),1).toISOString();
-      const end=new Date(month.getFullYear(),month.getMonth()+1,1).toISOString();
+      const range=calendarRange(month,view);
+      const start=range.start.toISOString();
+      const end=range.end.toISOString();
       const params=new URLSearchParams({start,end});
       const res=await fetch("/api/events?"+params,{cache:"no-store"});
       const body=await readApi(res);
+      if(sequence!==loadSequence.current)return;
       setEvents(body.events);
       setColleges(body.colleges||[]);
       setCollege(current=>current || body.colleges?.[0] || "");
       const publishedResponse=await fetch("/api/events?published=upcoming",{cache:"no-store"});
       const publishedBody=await readApi(publishedResponse);
+      if(sequence!==loadSequence.current)return;
       setPublished(publishedBody.events);
-    } catch(e) {setError(e instanceof Error?e.message:"Could not load events");}
-    finally {setLoading(false);}
-  },[month]);
+    } catch(e) {if(sequence===loadSequence.current)setError(e instanceof Error?e.message:"Could not load events");}
+    finally {if(sequence===loadSequence.current)setLoading(false);}
+  },[month,view]);
   useEffect(()=>{void Promise.resolve().then(load)},[load]);
   useEffect(()=>{
     const eventId=new URLSearchParams(window.location.search).get("event");
@@ -79,13 +87,16 @@ export function EventsCalendar() {
     }
     return result;
   },[events]);
-  const cells=Array.from({length:Math.ceil((monthStart.getDay()+new Date(month.getFullYear(),month.getMonth()+1,0).getDate())/7)*7},(_,i)=>i-monthStart.getDay()+1);
-  function open(day:number) {
-    openForDate(localDate(new Date(month.getFullYear(),month.getMonth(),day)));
-  }
-  function openForDate(d:string) {
+  const range=calendarRange(month,view);
+  const dates=Array.from({length:view==="month"?Math.ceil((monthStart.getDay()+new Date(month.getFullYear(),month.getMonth()+1,0).getDate())/7)*7:view==="week"?7:1},(_,i)=>{
+    const date=new Date(range.start);
+    date.setDate(date.getDate()+i-(view==="month"?monthStart.getDay():0));
+    return date;
+  });
+  function openForDate(d:string, hour=9, isAllDay=false) {
     setCreatedEvent(null);
     setActiveId(null);setSelected(d);setCollege("");setAllDay(false);setDateTime(d+"T09:00");setDueAt("");setName("");setInstructions("");setEventColor("#2563eb");setDorm("");setMajor("");setPaymentRequired(false);setTotalCost("");setIndividualCost("");setStatus("DRAFT");setType("");setServices([]);setMaxParticipants("");setWaitingListAllowed(false);setMaxWaitingList("");setError("");
+    setDateTime(d+"T"+String(hour).padStart(2,"0")+":00");setAllDay(isAllDay);
   }
   async function save(e:React.FormEvent) {
     e.preventDefault();setSaving(true);setError("");
@@ -109,24 +120,45 @@ export function EventsCalendar() {
   return <section className="mt-8 rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50/60 via-card to-sky-50/60 p-4 dark:border-indigo-800 dark:from-indigo-950/30 dark:to-sky-950/20 sm:p-6" aria-label="Shared events calendar">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-xl font-semibold">DormDash Calendar</h2><p className="text-sm text-muted">Published events are shared. Your drafts are private.</p></div>
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground" onClick={()=>{const now=new Date();setMonth(new Date(now.getFullYear(),now.getMonth(),1));openForDate(localDate(now));}}>+ Create Event</button>
-        <button type="button" className="rounded-lg border border-border px-3 py-2 text-sm" onClick={()=>setMonth(new Date(new Date().getFullYear(),new Date().getMonth(),1))}>Today</button>
-        <button type="button" aria-label="Previous month" className="rounded-lg border border-border px-3 py-2" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))}>Previous</button>
-        <button type="button" aria-label="Next month" className="rounded-lg border border-border px-3 py-2" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))}>Next</button>
+      <button type="button" className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground" onClick={()=>openForDate(localDate(month))}>+ Create Event</button>
+    </div>
+    <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
+      <button type="button" className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold hover:bg-accent/10" onClick={()=>setMonth(new Date())}>Today</button>
+      <div className="flex items-center gap-1">
+        {([-1,1] as const).map(direction=><button key={direction} type="button" aria-label={(direction===-1?"Previous ":"Next ")+view} title={(direction===-1?"Previous ":"Next ")+view} className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-accent/10 focus-visible:outline-2 focus-visible:outline-accent" onClick={()=>setMonth(current=>moveCalendar(current,view,direction))}>
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={direction===-1?"m15 18-6-6 6-6":"m9 18 6-6-6-6"}/></svg>
+        </button>)}
       </div>
+      <h3 className="min-w-0 flex-1 text-lg font-semibold sm:text-xl" aria-live="polite">{calendarTitle(month,view)}</h3>
+      <label className="ml-auto"><span className="sr-only">Calendar view</span><select value={view} onChange={e=>setView(e.target.value as CalendarView)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium"><option value="day">Day</option><option value="week">Week</option><option value="month">Month</option></select></label>
     </div>
-    <h3 className="mb-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3 font-semibold text-white">{month.toLocaleString("en-US",{month:"long",year:"numeric"})}</h3>
-    <div className="grid grid-cols-7 gap-1 rounded-lg bg-indigo-100/80 py-2 text-center text-xs font-semibold text-indigo-900 dark:bg-indigo-950/60 dark:text-indigo-200">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=><div key={d}>{d}</div>)}</div>
-    <div className="mt-1 grid grid-cols-7 gap-1">
-      {cells.map((day,i)=>{
-        const valid=day>0&&day<=new Date(month.getFullYear(),month.getMonth()+1,0).getDate();
-        const key=valid?localDate(new Date(month.getFullYear(),month.getMonth(),day)):"";
-        return <button key={i} type="button" disabled={!valid} onClick={()=>open(day)} className={"min-h-20 rounded-lg border p-1 text-left align-top transition-colors hover:border-accent hover:bg-indigo-100/60 disabled:opacity-20 dark:hover:bg-indigo-950/50 sm:min-h-28 sm:p-2 "+(key===localDate(new Date(now))?"border-accent bg-indigo-100/70 ring-1 ring-accent dark:bg-indigo-950/70":i%7===0||i%7===6?"border-violet-200 bg-violet-50/70 dark:border-violet-900 dark:bg-violet-950/20":"border-indigo-100 bg-card/80 dark:border-indigo-900")} aria-label={valid?"Create event on "+key:undefined}>
-          {valid&&<><span className="text-xs font-semibold">{day}</span><div className="mt-1 space-y-1">{(grouped[key]||[]).slice(0,3).map(ev=><span key={ev.id} role="button" tabIndex={0} onClick={e=>{e.stopPropagation();void openEvent(ev.id)}} onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();e.stopPropagation();void openEvent(ev.id)}}} className="block cursor-pointer truncate rounded px-1 py-0.5 text-[10px] font-medium sm:text-xs" style={eventColorStyle(ev.color,ev.type)} title={"View "+ev.name}>{ev.status==="CANCELLED"?"Cancelled: ":ev.status==="DRAFT"?"Draft: ":""}{ev.name}</span>)}</div></>}
-        </button>;
-      })}
-    </div>
+    {view!=="month"?<CalendarTimeGrid dates={dates} events={events} onOpen={openEvent} onCreate={openForDate}/>:<div className="overflow-x-auto rounded-xl border border-border bg-card" aria-busy={loading}>
+      <div>
+        {view==="month"&&<div className="grid grid-cols-7 border-b border-border py-3 text-center text-xs font-semibold text-muted">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=><div key={d}>{d}</div>)}</div>}
+        <div className="grid grid-cols-7">
+          {dates.map(date=>{
+            const key=localDate(date);
+            const valid=view!=="month"||date.getMonth()===month.getMonth();
+            const today=key===localDate(new Date(now));
+            const dayEvents=[...(grouped[key]||[])].sort((a,b)=>Number(b.allDay)-Number(a.allDay)||Date.parse(a.startsAt)-Date.parse(b.startsAt));
+            return <div key={key} className={"min-w-0 border-b border-r border-border p-1 sm:p-2 "+(view==="month"?"min-h-28 sm:min-h-36 ":"min-h-80 ")+(!valid?"bg-accent/5 ":today?"bg-accent/5 ":"")}>
+              {valid&&<><button type="button" onClick={()=>openForDate(key)} aria-label={"Create event on "+key} aria-current={today?"date":undefined} className="mb-2 flex w-full items-center gap-2 rounded-lg p-1 text-left hover:bg-accent/10">
+                {view!=="month"&&<span className="text-xs text-muted">{date.toLocaleDateString("en-US",{weekday:"short"})}</span>}
+                <span className={"flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold "+(today?"bg-accent text-accent-foreground":"")}>{date.getDate()}</span>
+              </button>
+              <div className="space-y-1">
+                {dayEvents.slice(0,view==="month"?3:undefined).map(ev=><button key={ev.id} type="button" onClick={()=>openEvent(ev.id)} className="block w-full rounded px-1.5 py-1 text-left text-[10px] font-medium hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:text-xs" style={eventColorStyle(ev.color,ev.type)} title={"View "+ev.name}>
+                  <span className="flex min-w-0 items-baseline gap-1"><span className="shrink-0 opacity-80">{calendarEventTime(ev)}</span><span className="truncate">{ev.status==="CANCELLED"?"Cancelled: ":ev.status==="DRAFT"?"Draft: ":""}{ev.name}</span></span>
+                  {view!=="month"&&<span className="mt-1 block text-xs opacity-80">{ev.allDay?"All day":new Date(ev.startsAt).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</span>}
+                </button>)}
+                {view==="month"&&dayEvents.length>3&&<button type="button" className="w-full rounded px-1 py-1 text-left text-xs font-medium text-muted hover:bg-accent/10" onClick={()=>{setMonth(date);setView("day")}}>+{dayEvents.length-3} more</button>}
+                {view!=="month"&&dayEvents.length===0&&!loading&&<p className="px-1 py-3 text-xs text-muted">No events</p>}
+              </div></>}
+            </div>;
+          })}
+        </div>
+      </div>
+    </div>}
     {loading&&<p className="mt-3 text-sm text-muted">Loading events...</p>}
     {error&&<p role="alert" className="mt-3 text-sm text-red-600">{error}</p>}
     {createdEvent&&!selected&&<div className="mt-4 rounded-xl border border-green-600 bg-green-50 p-4 dark:bg-green-950/20">
