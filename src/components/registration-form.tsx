@@ -685,7 +685,7 @@ export function RegistrationForm({
                 <div className="mt-7 border-t border-border pt-5">
                   <h3 className="text-sm font-semibold">Account security</h3>
                   <p className="mt-1 text-xs text-muted">
-                    Use at least 8 characters. You will verify the email after
+                    Use at least 15 characters. You will verify the email after
                     this step.
                   </p>
 
