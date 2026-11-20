@@ -8,4 +8,5 @@ const configured = Object.fromEntries(keys.map(key => [key, !!config[key]?.trim(
 let appOrigin = null;
 try { appOrigin = new URL(config.APP_URL).origin; } catch { /* Not configured. */ }
 console.log(JSON.stringify({ emailConfiguration: configured, appOrigin }));
-if (keys.some(key => !configured[key])) console.log("::warning::Optional student-verification email is not fully configured for this environment.");
+if (!configured.BREVO_API_KEY || !configured.BREVO_SENDER_EMAIL) console.log("::warning::Brevo credentials are missing; optional student-verification email is disabled for this environment.");
+if (!appOrigin) console.log("APP_URL is absent or invalid; verification links will use the Vercel deployment URL when available.");

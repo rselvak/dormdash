@@ -1,13 +1,14 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getPrisma } from "@/lib/db";
 import { matchesCollegeEmail } from "@/lib/college-email";
+import { emailAppUrl } from "@/lib/email-app-url";
 
 export const verificationHash = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export async function sendStudentVerification(studentId: string, parentId: string) {
   const key = process.env.BREVO_API_KEY;
   const sender = process.env.BREVO_SENDER_EMAIL;
-  const configuredUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === "development" ? "http://localhost:3000" : "");
+  const configuredUrl = emailAppUrl();
   if (!key || !sender || !configuredUrl) return { ok: false, message: "Verification email is not available yet. Your registration is saved." };
   const base = new URL(configuredUrl);
   if (base.protocol !== "https:" && !(base.protocol === "http:" && ["localhost", "127.0.0.1"].includes(base.hostname))) return { ok: false, message: "Verification email is not available yet." };
