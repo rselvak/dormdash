@@ -12,7 +12,7 @@ const eventTypes = [
   ["", "All event types"], ["COLLEGE_PICKUP", "Trip To College"], ["COLLEGE_DROP_OFF", "Trip From College"],
   ["CARPOOL", "Ride Pool"], ["VANPOOL", "Public Transport"], ["BUSPOOL", "Buspool"],
 ] as const;
-type Result = { endsAt?:string|null; createdBy?:string;status:"PUBLISHED"|"CANCELLED";cancellationReason:string|null;allDay:boolean;timeZone:string; color: string | null; id: string; name: string; college: string | null; dorm: string | null; major: string | null; type: string; startsAt: string; participantCount: number; maxParticipants: number };
+type Result = {offeredCount?:number; endsAt?:string|null; createdBy?:string;status:"PUBLISHED"|"CANCELLED";cancellationReason:string|null;allDay:boolean;timeZone:string; color: string | null; id: string; name: string; college: string | null; dorm: string | null; major: string | null; type: string; startsAt: string; participantCount: number; maxParticipants: number };
 
 export function EventSearch({ colleges, studentCount }: { colleges: string[]; studentCount: number }) {
   const [college, setCollege] = useState(studentCount === 1 ? colleges[0] ?? "" : "");
@@ -105,7 +105,7 @@ export function EventSearch({ colleges, studentCount }: { colleges: string[]; st
         <span className="mt-2 block text-sm text-muted">Created by {e.createdBy||"Organizer"} · {e.college} · {eventTypes.find(([value]) => value === e.type)?.[1] ?? e.type}</span>
         <span className="mt-1 block text-sm">{eventDateLabel(e)}</span>
         {(e.dorm || e.major) && <span className="mt-1 block text-sm text-muted">{[e.dorm && "Dorm: " + e.dorm, e.major && "Major: " + e.major].filter(Boolean).join(" · ")}</span>}
-        <span className="mt-2 block text-xs text-muted">{e.participantCount} / {e.maxParticipants} participants</span>
+        <span className="mt-2 block text-xs text-muted">{e.participantCount} / {e.maxParticipants} confirmed{e.offeredCount?` · ${e.offeredCount} reserved`:""}</span>
         <span className="mt-3 block text-sm font-medium text-accent">View details &amp; actions →</span>
       </button>)}</div>
     </section>}

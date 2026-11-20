@@ -19,6 +19,6 @@ describe("waiting list settings", () => {
     expect(participationSummary([
       { parentId: "owner", status: "ACCEPTED", joinedAt },
       { parentId: "waiting", status: "WAITLISTED", joinedAt },
-    ], "waiting")).toEqual({ participantCount: 1, waitingListCount: 1, isJoined: true, participationStatus: "WAITLISTED", joinedAt });
+    ], "waiting")).toEqual({ participantCount: 1, waitingListCount: 1,offeredCount:0, isJoined: true, participationStatus: "WAITLISTED", joinedAt });
   });
 });

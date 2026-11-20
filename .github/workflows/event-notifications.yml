@@ -1,0 +1,44 @@
+name: Process event email notifications
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment environment
+        type: choice
+        options: [production, test]
+        default: production
+permissions:
+  contents: read
+  deployments: read
+concurrency:
+  group: event-notifications-${{ inputs.target || 'production' }}
+  cancel-in-progress: false
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Process offers and queued email on the latest successful deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CRON_SECRET: ${{ secrets.DORMDASH_NOTIFICATION_CRON_SECRET }}
+          TARGET: ${{ inputs.target || 'production' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::notice::Set DORMDASH_NOTIFICATION_CRON_SECRET and the matching Vercel CRON_SECRET to enable this worker."
+            exit 0
+          fi
+          deploy_url=""
+          for id in $(gh api "repos/$GITHUB_REPOSITORY/deployments?environment=$TARGET&per_page=10" --jq '.[].id'); do
+            deploy_url=$(gh api "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" --jq '[.[] | select(.state == "success")][0].environment_url // empty')
+            if [ -n "$deploy_url" ]; then break; fi
+          done
+          if [[ "$deploy_url" != https://* ]]; then
+            echo "No successful deployment found for $TARGET"
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --max-time 90 --request POST \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$deploy_url/api/jobs/event-notifications"

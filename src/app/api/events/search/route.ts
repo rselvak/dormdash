@@ -69,14 +69,14 @@ export async function GET(request: Request) {
       select: {
         parent:{select:{name:true}},id: true, name: true, status: true, cancellationReason: true, color: true, college: true, dorm: true, major: true,
         type: true, allDay: true, endsAt: true, timeZone: true, startsAt: true, dueAt: true, maxParticipants: true,
-        participants: { where: { status: "ACCEPTED" }, select: { parentId: true } },
+        participants: { where: { status: {in:["ACCEPTED","OFFERED"]} }, select: { parentId: true, status:true } },
       },
     });
     return NextResponse.json({
       events: events.map(e => ({
         createdBy:e.parent?.name??"Organizer",id: e.id, name: e.name, status: e.status, cancellationReason: e.cancellationReason, color: e.color, college: e.college, dorm: e.dorm, major: e.major,
         type: e.type, allDay:e.allDay,endsAt:e.endsAt,timeZone:e.timeZone,startsAt: e.startsAt, dueAt: e.dueAt,
-        participantCount: e.participants.length, maxParticipants: e.maxParticipants,
+        participantCount: e.participants.filter(p=>p.status==="ACCEPTED").length,offeredCount:e.participants.filter(p=>p.status==="OFFERED").length, maxParticipants: e.maxParticipants,
       })),
     });
   } catch (error) {

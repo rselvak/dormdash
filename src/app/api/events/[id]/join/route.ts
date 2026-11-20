@@ -1,3 +1,5 @@
+import { flushEventEmails } from "@/lib/event-email";
+import { activeParticipation } from "@/lib/spot-offer-policy";
 import { isPastEvent } from "@/lib/event-policy";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
@@ -32,11 +34,11 @@ export async function POST(request:Request,{params}:Context) {
       if(event.type==="COLLEGE_PICKUP" && (!requestedServices.length || requestedServices.some(service=>!event.services.includes(service)))) return {status:400,error:"Select at least one of the services offered for this trip"};
       if(event.type!=="COLLEGE_PICKUP" && requestedServices.length) return {status:400,error:"Service requests apply only to Trip To College"};
       const existing=await tx.eventParticipant.findUnique({where:{eventId_parentId:{eventId:id,parentId:parent.id}}});
-      if(existing) return {status:409,error:"You have already joined"};
+      if(existing && activeParticipation.some(status=>status===existing.status)) return {status:409,error:"You have already joined"};
       if(event.dueAt && event.dueAt.getTime()<=Date.now()) return {status:409,error:"Joining deadline has passed"};
       if((event.allDay && event.endsAt ? event.endsAt : event.startsAt).getTime()<Date.now()) return {status:409,error:"This event has already started"};
       await promoteWaitingList(tx,id,event.maxParticipants);
-      const accepted=await tx.eventParticipant.count({where:{eventId:id,status:"ACCEPTED"}});
+      const accepted=await tx.eventParticipant.count({where:{eventId:id,status:{in:["ACCEPTED","OFFERED"]}}});
       const waiting=await tx.eventParticipant.count({where:{eventId:id,status:"WAITLISTED"}});
       const participationStatus=accepted<event.maxParticipants?"ACCEPTED":"WAITLISTED";
       if(participationStatus==="WAITLISTED" && !event.waitingListAllowed) return {status:409,error:"This event is full"};
@@ -48,9 +50,12 @@ export async function POST(request:Request,{params}:Context) {
         if(!eligible || collegeKey(eligible.college)!==event.collegeKey) return {status:400,error:"Student must attend the event college"};
       }
       if(event.dueAt && event.dueAt.getTime()<=Date.now()) return {status:409,error:"The response deadline has passed"};
-      await tx.eventParticipant.create({data:{eventId:id,parentId:parent.id,studentId:parsed.data.studentId,selectedStop:event.type==="BUSPOOL"?parsed.data.selectedStop:null,requestedServices,status:participationStatus,joinedAt:new Date()}});
+      const participation={studentId:parsed.data.studentId,selectedStop:event.type==="BUSPOOL"?parsed.data.selectedStop:null,requestedServices,status:participationStatus as "ACCEPTED"|"WAITLISTED",joinedAt:new Date(),offerCreatedAt:null,offerSentAt:null,offerExpiresAt:null};
+      if(existing)await tx.eventParticipant.update({where:{id:existing.id},data:participation});
+      else await tx.eventParticipant.create({data:{eventId:id,parentId:parent.id,...participation}});
       return {status:201,participationStatus};
     });
+    if(result.status===201)await flushEventEmails(id);
     return NextResponse.json(result.status===201?{ok:true,participationStatus:result.participationStatus}:{error:result.error},{status:result.status});
   } catch(error) {console.error("Event join failed",error);return NextResponse.json({error:"Could not join event"},{status:500});}
 }
@@ -70,11 +75,13 @@ export async function DELETE(_request: Request, { params }: Context) {
       if (isPastEvent(event)) return {status:409,error:"Past events are read-only"};
       if (event.status === "CANCELLED") return { status: 409, error: "This event has been cancelled; participation records are retained" };
       const mine = await tx.eventParticipant.findUnique({ where: { eventId_parentId: { eventId: id, parentId: parent.id } } });
-      if (!mine) return { status: 404, error: "You have not joined this event" };
+      if (!mine || !activeParticipation.some(status=>status===mine.status)) return { status: 404, error: "You have not joined this event" };
       await tx.eventParticipant.delete({ where: { id: mine.id } });
+      await tx.eventEmail.updateMany({where:{participantId:mine.id,kind:"SPOT_OFFERED",status:{in:["PENDING","SENDING"]}},data:{status:"CANCELLED",leaseToken:null,leaseUntil:null}});
       await promoteWaitingList(tx, id, event.maxParticipants);
       return { status: 200 };
     });
+    if(result.status===200)await flushEventEmails(id);
     return NextResponse.json(result.status === 200 ? { ok: true } : { error: result.error }, { status: result.status });
   } catch (error) {
     console.error("Event withdrawal failed", error);

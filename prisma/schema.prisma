@@ -30,6 +30,7 @@ model Parent {
 
   participations EventParticipant[]
   notifications EventNotification[]
+  eventEmails EventEmail[]
   events    Event[]
   students  Student[]
   createdAt DateTime  @default(now())
@@ -82,6 +83,9 @@ enum EventStatus {
 enum ParticipationStatus {
   ACCEPTED
   WAITLISTED
+  OFFERED
+  DECLINED
+  EXPIRED
 }
 
 enum TripService {
@@ -121,9 +125,11 @@ model Event {
   maxParticipants Int
   waitingListAllowed Boolean @default(false)
   maxWaitingList Int?
+  waitingListCheckedAt DateTime?
 
   participants EventParticipant[]
   notifications EventNotification[]
+  emails EventEmail[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -157,8 +163,34 @@ model EventParticipant {
   joinedAt DateTime @default(now())
   status ParticipationStatus @default(ACCEPTED)
   requestedServices TripService[] @default([])
+  offerVersion Int @default(0)
+  offerCreatedAt DateTime?
+  offerSentAt DateTime?
+  offerExpiresAt DateTime?
   @@unique([eventId, parentId])
   @@index([eventId])
   @@index([parentId])
   @@index([eventId, status, joinedAt, id])
+}
+
+model EventEmail {
+  id String @id @default(uuid())
+  uniqueKey String @unique
+  eventId String
+  parentId String
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  parent Parent @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  kind String
+  participantId String?
+  offerVersion Int?
+  status String @default("PENDING")
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  leaseUntil DateTime?
+  leaseToken String?
+  sentAt DateTime?
+  lastError String?
+  createdAt DateTime @default(now())
+  @@index([status, availableAt])
+  @@index([eventId, kind])
 }

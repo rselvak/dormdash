@@ -1,3 +1,4 @@
+vi.mock("@/lib/event-email",()=>({flushEventEmails:vi.fn()}));
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
@@ -10,6 +11,8 @@ import { POST, DELETE } from "@/app/api/events/[id]/join/route";
 import { PATCH, GET, DELETE as deleteDraft } from "@/app/api/events/[id]/route";
 import { POST as createEvent } from "@/app/api/events/route";
 import { POST as cancelEvent } from "@/app/api/events/[id]/cancel/route";
+import { POST as respondToOffer } from "@/app/api/events/[id]/offer/route";
+import { promoteWaitingList } from "@/lib/event-participation";
 import { GET as notifications, PATCH as readNotification } from "@/app/api/notifications/route";
 import { GET as listEvents } from "@/app/api/events/route";
 import { GET as searchEvents } from "@/app/api/events/search/route";
@@ -30,6 +33,7 @@ describe.skipIf(!url)("waiting list database flow", () => {
   const as = (index: number) => mocks.auth.mockResolvedValue({ userId: parents[index].clerkUserId });
   const join = async (index: number) => { as(index); return POST(request("POST", { studentId: parents[index].students[0].id }), context()); };
   const withdraw = async (index: number) => { as(index); return DELETE(request("DELETE"), context()); };
+  const offerRequest = async (action: string, version: number, index = 2, participantId?: string) => request("POST", {action,version,participantId:participantId ?? (await db.eventParticipant.findUniqueOrThrow({where:{eventId_parentId:{eventId,parentId:parents[index].id}}})).id});
   beforeAll(async () => {
     db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url! }) });
     mocks.db = db;
@@ -281,13 +285,16 @@ describe.skipIf(!url)("waiting list database flow", () => {
     }
     expect(await db.eventParticipant.count({where:{eventId}})).toBe(1);
   });
-  it("promotes the earliest response and preserves its timestamp", async () => {
+  it("offers the earliest response a reserved place and preserves its timestamp", async () => {
     await join(1); await join(2); await join(3);
     await db.eventParticipant.update({ where: { eventId_parentId: { eventId, parentId: parents[2].id } }, data: { joinedAt: new Date("2026-01-01T00:00:00Z") } });
     const before = await db.eventParticipant.findUniqueOrThrow({ where: { eventId_parentId: { eventId, parentId: parents[2].id } } });
     expect((await withdraw(1)).status).toBe(200);
     const after = await db.eventParticipant.findUniqueOrThrow({ where: { id: before.id } });
-    expect(after.status).toBe("ACCEPTED");
+    expect(after.status).toBe("OFFERED");
+    expect(after.offerVersion).toBe(1);
+    expect(after.offerExpiresAt).toBeNull();
+    expect(await db.eventEmail.count({ where: { eventId, kind: "SPOT_OFFERED", parentId: after.parentId } })).toBe(1);
     expect(after.joinedAt).toEqual(before.joinedAt);
     expect(await db.eventParticipant.count({ where: { eventId, status: "WAITLISTED" } })).toBe(1);
   });
@@ -308,7 +315,8 @@ describe.skipIf(!url)("waiting list database flow", () => {
     mocks.auth.mockReset();
     for (const p of accepted) mocks.auth.mockResolvedValueOnce({ userId: parents.find(parent => parent.id === p.parentId)!.clerkUserId });
     await Promise.all(accepted.map(() => DELETE(request("DELETE"), context())));
-    expect(await db.eventParticipant.count({ where: { eventId, status: "ACCEPTED" } })).toBe(2);
+    expect(await db.eventParticipant.count({ where: { eventId, status: "ACCEPTED" } })).toBe(0);
+    expect(await db.eventParticipant.count({ where: { eventId, status: "OFFERED" } })).toBe(2);
     expect(await db.eventParticipant.count({ where: { eventId, status: "WAITLISTED" } })).toBe(0);
   });
   it("rejects full events with waiting lists disabled, and allows unlimited waiting lists", async () => {
@@ -332,7 +340,62 @@ describe.skipIf(!url)("waiting list database flow", () => {
     expect((await PATCH(request("PATCH", body), context())).status).toBe(409);
     expect((await PATCH(request("PATCH", { ...body, waitingListAllowed: true, maxWaitingList: 1 }), context())).status).toBe(409);
     expect((await PATCH(request("PATCH", { ...body, maxParticipants: 4 }), context())).status).toBe(200);
-    expect(await db.eventParticipant.count({ where: { eventId, status: "ACCEPTED" } })).toBe(4);
+    expect(await db.eventParticipant.count({ where: { eventId, status: "ACCEPTED" } })).toBe(2);
+    expect(await db.eventParticipant.count({ where: { eventId, status: "OFFERED" } })).toBe(2);
+  });
+  it("requires the offered parent to accept, reserves capacity and rejects stale links", async () => {
+    await join(1); await join(2); await join(3); await withdraw(1);
+    as(3);
+    expect((await respondToOffer(await offerRequest("accept",1), context())).status).toBe(409);
+    expect((await join(4)).status).toBe(201);
+    expect(await db.eventParticipant.findUnique({ where: { eventId_parentId: { eventId, parentId: parents[4].id } } })).toMatchObject({ status: "WAITLISTED" });
+    as(2);
+    expect((await respondToOffer(await offerRequest("accept",2), context())).status).toBe(409);
+    const responses = await Promise.all([1,2].map(async () => respondToOffer(await offerRequest("accept",1), context())));
+    expect(responses.map(r => r.status)).toEqual([200,200]);
+    expect(await db.eventParticipant.count({ where: { eventId, status: "ACCEPTED" } })).toBe(2);
+    expect(await db.eventParticipant.count({ where: { eventId, status: "OFFERED" } })).toBe(0);
+  });
+  it("declines an offer and offers the next parent without automatically accepting them", async () => {
+    await join(1); await join(2); await join(3); await withdraw(1);
+    as(2);
+    expect((await respondToOffer(await offerRequest("decline",1), context())).status).toBe(200);
+    expect(await db.eventParticipant.findUnique({ where: { eventId_parentId: { eventId, parentId: parents[2].id } } })).toMatchObject({ status: "DECLINED" });
+    expect(await db.eventParticipant.findUnique({ where: { eventId_parentId: { eventId, parentId: parents[3].id } } })).toMatchObject({ status: "OFFERED" });
+    expect(await db.eventEmail.count({ where: { eventId, kind: "SPOT_OFFERED", status: "PENDING" } })).toBe(1);
+  });
+  it("expires elapsed offers and advances the queue under the event lock", async () => {
+    await join(1); await join(2); await join(3); await withdraw(1);
+    await db.eventParticipant.update({ where: { eventId_parentId: { eventId, parentId: parents[2].id } }, data: { offerExpiresAt: new Date(Date.now()-1000) } });
+    await db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT "id" FROM "Event" WHERE "id" = ${eventId} FOR UPDATE`;
+      await promoteWaitingList(tx,eventId,2);
+    });
+    as(2);
+    expect((await respondToOffer(await offerRequest("accept",1), context())).status).toBe(409);
+    expect(await db.eventParticipant.findUnique({ where: { eventId_parentId: { eventId, parentId: parents[2].id } } })).toMatchObject({ status: "EXPIRED" });
+    expect(await db.eventParticipant.findUnique({ where: { eventId_parentId: { eventId, parentId: parents[3].id } } })).toMatchObject({ status: "OFFERED" });
+  });
+  it("queues cancellation emails for accepted, waiting and offered parents only once", async () => {
+    await db.event.update({ where: { id: eventId }, data: { maxParticipants: 3 } });
+    await join(1); await join(2); await join(3); await join(4); await withdraw(1); await join(5);
+    as(0);
+    expect((await cancelEvent(request("POST", { reason: "Unsafe road conditions" }), context())).status).toBe(200);
+    expect((await cancelEvent(request("POST", { reason: "Repeated request" }), context())).status).toBe(200);
+    const emails = await db.eventEmail.findMany({ where: { eventId, kind: "CANCELLED" }, include: { event: true } });
+    expect(emails.map(e=>e.parentId).sort()).toEqual([parents[2].id,parents[3].id,parents[4].id,parents[5].id].sort());
+    expect(emails.every(e=>e.event.cancellationReason === "Unsafe road conditions")).toBe(true);
+    expect(await db.eventEmail.count({ where: { eventId, kind: "SPOT_OFFERED", status: "PENDING" } })).toBe(0);
+    as(3);
+    expect((await respondToOffer(await offerRequest("accept",1,3), context())).status).toBe(409);
+  });
+  it("rejects an earlier participation's offer after withdrawing and rejoining", async () => {
+    await join(1); await join(2); await withdraw(1);
+    const old = await db.eventParticipant.findUniqueOrThrow({where:{eventId_parentId:{eventId,parentId:parents[2].id}}});
+    await withdraw(2); await join(1); await join(2); await withdraw(1);
+    as(2);
+    expect((await respondToOffer(await offerRequest("accept",1,2,old.id),context())).status).toBe(409);
+    expect((await respondToOffer(await offerRequest("accept",1),context())).status).toBe(200);
   });
   it("creates an event with waiting list settings", async () => {
     as(0);
