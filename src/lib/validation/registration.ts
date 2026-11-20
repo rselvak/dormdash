@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { collegeEmailDomains, matchesCollegeEmail } from "@/lib/college-email";
 
 import { getCollege, isRegistrationCollege } from "@/lib/colleges";
 
@@ -159,6 +160,7 @@ export const parentAccountSchema = z
 
 export const studentSchema = z
   .object({
+    verifyCollegeEmail: z.boolean().default(false),
     name: requiredText("Student name"),
     email: requiredEmail("student email address"),
     phone: phoneField("Student phone number", false),
@@ -175,6 +177,10 @@ export const studentSchema = z
   })
   .superRefine((value, ctx) => {
     const college = getCollege(value.college);
+    if (value.verifyCollegeEmail && !matchesCollegeEmail(value.email, value.college)) {
+      const domains = collegeEmailDomains(value.college);
+      ctx.addIssue({ code: "custom", path: ["email"], message: domains.length ? `Use your college email (${domains.map(domain => "@" + domain).join(", ")}) to verify this student.` : "College email verification is not available for this college yet. Turn verification off to continue." });
+    }
 
     if (!college || !isRegistrationCollege(value.college)) {
       ctx.addIssue({

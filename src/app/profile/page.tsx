@@ -1,4 +1,5 @@
 import { ProfileEditor } from "@/components/profile-editor";
+import { StudentVerificationStatus } from "@/components/student-verification-status";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -65,6 +66,7 @@ function StudentCard({
           </div>
         ))}
       </dl>
+      <StudentVerificationStatus id={student.id} enabled={student.verifyCollegeEmail} verified={!!student.collegeEmailVerifiedAt} pending={!!student.emailVerificationExpiresAt && student.emailVerificationExpiresAt > new Date()}/>
     </article>
   );
 }
@@ -110,7 +112,7 @@ export default async function ProfilePage() {
 
       {registration ? (
         <>
-          <ProfileEditor profile={registration}/>
+          <ProfileEditor profile={{ name:registration.name,email:registration.email,phone:registration.phone,parent2Name:registration.parent2Name,parent2Phone:registration.parent2Phone,parent2Email:registration.parent2Email,students:registration.students.map(student=>({id:student.id,name:student.name,email:student.email,phone:student.phone,college:student.college,dorm:student.dorm,year:student.year,major:student.major,verifyCollegeEmail:student.verifyCollegeEmail})) }}/>
           <section
             aria-labelledby="family-heading"
             className="mt-8 rounded-2xl border border-border bg-card p-5 sm:p-6"

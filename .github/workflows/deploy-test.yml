@@ -75,6 +75,9 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
+      - name: Check email configuration without exposing credentials
+        run: node scripts/dev/check-email-config.mjs .vercel/.env.preview.local
+
       - name: Apply development database migrations
         env:
           DATABASE_URL: ${{ secrets.TEST_DATABASE_URL_UNPOOLED }}

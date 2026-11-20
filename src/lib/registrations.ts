@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
+import { sendPendingStudentVerifications } from "@/lib/student-email-verification";
 import type {
   ParentProfile,
   RegistrationInput,
@@ -27,6 +28,7 @@ function parentData(parent: ParentProfile) {
 
 function studentData(student: StudentInput) {
   return {
+    verifyCollegeEmail: student.verifyCollegeEmail,
     name: student.name,
     email: student.email,
     phone: student.phone || null,
@@ -55,7 +57,7 @@ export async function saveRegistration(
   clerkUserId: string,
   input: RegistrationInput,
 ): Promise<Registration> {
-  return getPrisma().parent.create({
+  const registration = await getPrisma().parent.create({
     data: {
       clerkUserId,
       ...parentData(input.parent),
@@ -65,6 +67,8 @@ export async function saveRegistration(
     },
     include: withStudents,
   });
+  await sendPendingStudentVerifications(clerkUserId).catch(() => undefined);
+  return registration;
 }
 
 export async function addStudent(
@@ -78,12 +82,14 @@ export async function addStudent(
 
   if (!parent) return null;
 
-  return getPrisma().$transaction(async tx => {
+  const added = await getPrisma().$transaction(async tx => {
     await tx.$queryRaw`SELECT "id" FROM "Parent" WHERE "id" = ${parent.id} FOR UPDATE`;
     const count = await tx.student.count({ where: { parentId: parent.id } });
     if (count >= 10) throw new Error("You can register up to 10 students.");
     return tx.student.create({ data: { parentId: parent.id, ...studentData(student) } });
   });
+  await sendPendingStudentVerifications(clerkUserId).catch(() => undefined);
+  return added;
 }
 
 /** Turns Prisma's unique-constraint error into a message worth showing a user. */
