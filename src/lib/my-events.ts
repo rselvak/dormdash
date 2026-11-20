@@ -19,7 +19,7 @@ export function myEventFilters(parentId: string, now: Date): Record<MyEventSecti
   return {
     organizing: { AND: [{ parentId }, upcoming] },
     accepted: { AND: [{ parentId: { not: parentId }, status: { in: ["PUBLISHED", "CANCELLED"] }, participants: { some: { parentId, status: "ACCEPTED" } } }, upcoming] },
-    waiting: { AND: [{ parentId: { not: parentId }, status: { in: ["PUBLISHED", "CANCELLED"] }, participants: { some: { parentId, status: "WAITLISTED" } } }, upcoming] },
+    waiting: { AND: [{ parentId: { not: parentId }, status: { in: ["PUBLISHED", "CANCELLED"] }, participants: { some: { parentId, status: { in: ["WAITLISTED", "OFFERED"] } } } }, upcoming] },
     past: { AND: [{ OR: [{ parentId }, visibleParticipation] }, ended] },
   };
 }

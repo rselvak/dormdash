@@ -1,3 +1,4 @@
+import { flushEventEmails } from "@/lib/event-email";
 import { canCreateSchedule, isPastEvent } from "@/lib/event-policy";
 import { ridePoolFields, validateRidePool } from "@/lib/ride-pool";
 import { auth } from "@clerk/nextjs/server";
@@ -25,11 +26,11 @@ export async function GET(_request:Request,{params}:Context) {
     const parent=await identity();
     if(!parent) return NextResponse.json({error:"Sign in and complete registration"},{status:401});
     const {id}=await params;
-    const event=await getPrisma().event.findUnique({where:{id},include:{parent:{select:{name:true}},participants:{select:{selectedStop:true,parentId:true,studentId:true,status:true,joinedAt:true,requestedServices:true}}}});
+    const event=await getPrisma().event.findUnique({where:{id},include:{parent:{select:{name:true}},participants:{select:{id:true,offerVersion:true,offerSentAt:true,offerExpiresAt:true,selectedStop:true,parentId:true,studentId:true,status:true,joinedAt:true,requestedServices:true}}}});
     if(!event || (event.parentId!==parent.id && !((event.status==="PUBLISHED"||event.status==="CANCELLED")&&event.participants.some(p=>p.parentId===parent.id)) && ((event.status!=="PUBLISHED"&&event.status!=="CANCELLED") || !event.collegeKey || !parent.students.some(s=>collegeKey(s.college)===event.collegeKey)))) return NextResponse.json({error:"Event not found"},{status:404});
     const isOwner=event.parentId===parent.id;
     const mine=event.participants.find(p=>p.parentId===parent.id);
-    return NextResponse.json({event:{createdBy:event.parent?.name??"Organizer",transportType:event.transportType,busStops:event.busStops,selectedStop:mine?.selectedStop??null,id:event.id,name:event.name,color:event.color,origin:event.origin,destination:event.destination,instructions:event.instructions,college:event.college,dorm:event.dorm,major:event.major,startsAt:event.startsAt,allDay:event.allDay,endsAt:event.endsAt,timeZone:event.timeZone,dueAt:event.dueAt,type:event.type,services:event.services,requestedServices:mine?.requestedServices??[],status:event.status,cancellationReason:event.cancellationReason,cancelledAt:event.cancelledAt,maxParticipants:event.maxParticipants,paymentRequired:event.paymentRequired,totalCostCents:event.totalCostCents,individualCostCents:event.individualCostCents,waitingListAllowed:event.waitingListAllowed,maxWaitingList:event.maxWaitingList,...participationSummary(event.participants,parent.id),isOwner,selectedStudentId:mine?.studentId??null},students:parent.students});
+    return NextResponse.json({event:{participantId:mine?.id??null,offerVersion:mine?.offerVersion??0,offerExpiresAt:mine?.offerExpiresAt??null,offerSentAt:mine?.offerSentAt??null,createdBy:event.parent?.name??"Organizer",transportType:event.transportType,busStops:event.busStops,selectedStop:mine?.selectedStop??null,id:event.id,name:event.name,color:event.color,origin:event.origin,destination:event.destination,instructions:event.instructions,college:event.college,dorm:event.dorm,major:event.major,startsAt:event.startsAt,allDay:event.allDay,endsAt:event.endsAt,timeZone:event.timeZone,dueAt:event.dueAt,type:event.type,services:event.services,requestedServices:mine?.requestedServices??[],status:event.status,cancellationReason:event.cancellationReason,cancelledAt:event.cancelledAt,maxParticipants:event.maxParticipants,paymentRequired:event.paymentRequired,totalCostCents:event.totalCostCents,individualCostCents:event.individualCostCents,waitingListAllowed:event.waitingListAllowed,maxWaitingList:event.maxWaitingList,...participationSummary(event.participants,parent.id),isOwner,selectedStudentId:mine?.studentId??null},students:parent.students});
   } catch(error) {console.error("Event detail failed",error);return NextResponse.json({error:"Could not load event"},{status:500});}
 }
 const editSchema=z.object({services:tripServicesSchema.default([]),...waitingListFields,...scheduleFields,...ridePoolFields,timeZone:z.string().min(1).max(100).optional(),color:eventColorSchema,instructions:z.string().trim().max(4000).nullable().optional(),name:z.string().trim().min(1).max(160),college:z.string().trim().min(1).max(200),dorm:z.string().trim().max(120).nullable().optional(),major:z.string().trim().max(120).nullable().optional(),startsAt:z.iso.datetime({offset:true}),dueAt:z.iso.datetime({offset:true}).nullable(),type:z.enum(["COLLEGE_PICKUP","COLLEGE_DROP_OFF","CARPOOL","VANPOOL","BUSPOOL"]),status:z.enum(["DRAFT","PUBLISHED"]),maxParticipants:z.number().int().positive().max(10000)}).superRefine(validateSchedule).superRefine(validateTripServices).superRefine(validateRidePool);
@@ -47,11 +48,12 @@ export async function PATCH(request:Request,{params}:Context) {
       if(!event) return {status:404,error:"Event not found"};
       if(event.parentId!==parent.id) return {status:403,error:"Only the creator can edit this event"};
       if(isPastEvent(event)) return {status:409,error:"Past events are read-only"};
-      if(event.participants.some(p=>p.selectedStop && (parsed.data.type!=="BUSPOOL" || !parsed.data.busStops.includes(p.selectedStop))))return {status:409,error:"Cannot remove a stop selected by an existing participant"};
+      if(event.participants.some(p=>["ACCEPTED","WAITLISTED","OFFERED"].includes(p.status) && p.selectedStop && (parsed.data.type!=="BUSPOOL" || !parsed.data.busStops.includes(p.selectedStop))))return {status:409,error:"Cannot remove a stop selected by an existing participant"};
       if(event.status==="CANCELLED") return {status:409,error:"Cancelled events cannot be edited or republished"};
-      if(event.participants.some(p=>p.requestedServices.some(service=>!parsed.data.services.includes(service)))) return {status:409,error:"Cannot remove a service already requested by a participant"};
-      const accepted=event.participants.filter(p=>p.status==="ACCEPTED").length;
-      const waiting=event.participants.length-accepted;
+      if(event.participants.some(p=>["ACCEPTED","WAITLISTED","OFFERED"].includes(p.status) && p.requestedServices.some(service=>!parsed.data.services.includes(service)))) return {status:409,error:"Cannot remove a service already requested by a participant"};
+      const accepted=event.participants.filter(p=>p.status==="ACCEPTED"||p.status==="OFFERED").length;
+      const waiting=event.participants.filter(p=>p.status==="WAITLISTED").length;
+      if(parsed.data.status==="DRAFT"&&event.participants.some(p=>p.status==="OFFERED"||p.status==="WAITLISTED"))return {status:409,error:"An event with waiting participants or offered spots must stay published"};
       const remainingWaiting=Math.max(0,waiting-Math.max(0,parsed.data.maxParticipants-accepted));
       if(remainingWaiting>0 && (!parsed.data.waitingListAllowed || (parsed.data.maxWaitingList!=null && parsed.data.maxWaitingList<remainingWaiting))) return {status:409,error:"Waiting list settings cannot remove existing waiting participants"};
       if(parsed.data.maxParticipants<accepted) return {status:409,error:"Capacity cannot be below current participation"};
@@ -60,6 +62,7 @@ export async function PATCH(request:Request,{params}:Context) {
       await promoteWaitingList(tx,id,parsed.data.maxParticipants);
       return {status:200};
     });
+    if(result.status===200)await flushEventEmails(id);
     return NextResponse.json(result.status===200?{ok:true}:{error:result.error},{status:result.status});
   } catch(error) {console.error("Event update failed",error);return NextResponse.json({error:"Unable to update event"},{status:500});}
 }
