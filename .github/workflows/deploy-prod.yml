@@ -72,6 +72,9 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
+      - name: Check email configuration without exposing credentials
+        run: node scripts/dev/check-email-config.mjs .vercel/.env.production.local
+
       # Use the production environment pulled from Vercel, never a local/test URL.
       # Migrations must remain additive so the previous app version can still run.
       - name: Apply production database migrations
