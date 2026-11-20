@@ -49,6 +49,11 @@
     "typescript": "^5",
     "vitest": "^5.1.0"
   },
+  "overrides": {
+    "@prisma/config": {
+      "effect": "3.22.1"
+    }
+  },
   "allowScripts": {
     "prisma@7.10.1": true,
     "@prisma/engines@7.10.1": true
