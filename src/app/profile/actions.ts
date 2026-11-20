@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getPrisma } from "@/lib/db";
+import { sendPendingStudentVerifications, studentVerificationReset } from "@/lib/student-email-verification";
 import { describeUniqueError } from "@/lib/registrations";
 import { parentProfileSchema, studentSchema } from "@/lib/validation/registration";
 
@@ -35,10 +36,15 @@ export async function saveProfile(input: unknown) {
       await tx.student.deleteMany({ where: { parentId: family.id, id: { notIn: ids } } });
       for (const student of students) {
         const { id, ...data } = student;
-        if (id) await tx.student.update({ where: { id, parentId: family.id }, data });
+        if (id) {
+          const current = await tx.student.findUnique({ where: { id, parentId: family.id }, select: { email: true, college: true, verifyCollegeEmail: true } });
+          if (!current) throw new Error("Student not found");
+          await tx.student.update({ where: { id, parentId: family.id }, data: { ...data, ...studentVerificationReset(current, data) } });
+        }
         else await tx.student.create({ data: { ...data, parentId: family.id } });
       }
     });
+    await sendPendingStudentVerifications(userId).catch(() => undefined);
     for (const path of ["/profile", "/dashboard", "/", "/my-events"]) revalidatePath(path);
     return { ok: true, message: "Profile saved." };
   } catch (error) {

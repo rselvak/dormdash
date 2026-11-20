@@ -5,6 +5,7 @@ import type { studentSchema } from "@/lib/validation/registration";
 export type SchoolYear = "" | "1" | "2" | "3" | "4";
 
 export type StudentDraft = {
+  verifyCollegeEmail?: boolean;
   name: string;
   email: string;
   phone: string;
@@ -40,6 +41,7 @@ export const YEAR_OPTIONS: ReadonlyArray<{ value: SchoolYear; label: string }> =
 
 export function emptyStudent(): StudentDraft {
   return {
+    verifyCollegeEmail: false,
     name: "",
     email: "",
     phone: "",
@@ -70,6 +72,7 @@ type StudentDraftInput = z.input<typeof studentSchema>;
 
 export function toStudentInput(student: StudentDraft): StudentDraftInput {
   return {
+    verifyCollegeEmail: student.verifyCollegeEmail ?? false,
     name: student.name,
     email: student.email,
     phone: student.phone,

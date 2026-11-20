@@ -9,7 +9,7 @@ import { emptyStudent, toStudentInput, type StudentDraft } from "@/lib/registrat
 
 type ProfileData = {
   name: string; email: string; phone: string; parent2Name: string | null; parent2Email: string | null; parent2Phone: string | null;
-  students: { id: string; name: string; email: string; phone: string | null; college: string; dorm: string | null; year: number | null; major: string }[];
+  students: { id: string; name: string; email: string; phone: string | null; college: string; dorm: string | null; year: number | null; major: string; verifyCollegeEmail?:boolean }[];
 };
 export function ProfileEditor({ profile }: { profile: ProfileData }) {
   const router = useRouter();

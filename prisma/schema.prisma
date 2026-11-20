@@ -48,6 +48,11 @@ model Student {
   dorm    String?
   year    Int?
   major   String
+  verifyCollegeEmail Boolean @default(false)
+  collegeEmailVerifiedAt DateTime?
+  emailVerificationTokenHash String? @unique
+  emailVerificationExpiresAt DateTime?
+  emailVerificationSentAt DateTime?
 
   participations EventParticipant[]
   createdAt DateTime @default(now())

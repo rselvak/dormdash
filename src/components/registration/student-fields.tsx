@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { collegeEmailDomains } from "@/lib/college-email";
 
 import { cn } from "@/lib/utils";
 import { COLLEGE_OPTIONS, getCollege } from "@/lib/colleges";
@@ -97,7 +98,10 @@ export function StudentFields({
           label="Student email"
           required
           error={error("email")}
+          className="sm:col-span-2"
         >
+          <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1 basis-48">
           <TextInput
             id={`${idPrefix}-email`}
             name={`${idPrefix}-email`}
@@ -108,6 +112,14 @@ export function StudentFields({
             invalid={Boolean(error("email"))}
             onChange={(event) => onChange({ email: event.target.value })}
           />
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
+            <input type="checkbox" role="switch" checked={value.verifyCollegeEmail ?? false} onChange={event => onChange({ verifyCollegeEmail: event.target.checked })} className="peer sr-only"/>
+            <span aria-hidden="true" className="relative h-5 w-9 shrink-0 rounded-full bg-border transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-accent peer-checked:after:translate-x-4 peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent"/>
+            Verify college email
+          </label>
+          </div>
+          <p className="mt-1 text-xs text-muted">{value.verifyCollegeEmail ? `A verification link will be sent after saving. ${collegeEmailDomains(value.college).map(domain => "@" + domain).join(", ") || "Choose a supported college."}` : "Optional. Off means no email verification is needed."}</p>
         </Field>
 
         <Field

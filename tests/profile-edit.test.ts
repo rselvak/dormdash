@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getCollegeMajors } from "@/lib/colleges";
 
-const mocks = vi.hoisted(() => ({ auth: vi.fn(), user: vi.fn(), parent: vi.fn(), updateParent: vi.fn(), count: vi.fn(), remove: vi.fn(), updateStudent: vi.fn(), addStudent: vi.fn(), revalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ auth: vi.fn(), user: vi.fn(), parent: vi.fn(), currentStudent: vi.fn(), updateParent: vi.fn(), count: vi.fn(), remove: vi.fn(), updateStudent: vi.fn(), addStudent: vi.fn(), revalidate: vi.fn() }));
 vi.mock("@clerk/nextjs/server", () => ({ auth: mocks.auth, currentUser: mocks.user }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidate }));
 vi.mock("@/lib/db", () => {
-  const tx = { $queryRaw: vi.fn(), parent: { findUnique: mocks.parent, update: mocks.updateParent }, student: { count: mocks.count, deleteMany: mocks.remove, update: mocks.updateStudent, create: mocks.addStudent } };
+  const tx = { $queryRaw: vi.fn(), parent: { findUnique: mocks.parent, update: mocks.updateParent }, student: { findUnique:mocks.currentStudent,count: mocks.count, deleteMany: mocks.remove, update: mocks.updateStudent, create: mocks.addStudent } };
   return { getPrisma: () => ({ $transaction: (fn: (client: typeof tx) => unknown) => fn(tx) }) };
 });
 import { saveProfile } from "@/app/profile/actions";
@@ -18,6 +18,7 @@ beforeEach(() => {
   mocks.user.mockResolvedValue({ primaryEmailAddress: { emailAddress: "verified@example.test", verification: { status: "verified" } } });
   mocks.parent.mockResolvedValue({ id: "family" });
   mocks.count.mockResolvedValue(1);
+  mocks.currentStudent.mockResolvedValue({email:"child@example.test",college:"Stanford University",verifyCollegeEmail:false});
 });
 describe("profile editing", () => {
   it("updates owned records and uses the verified Clerk primary email", async () => {
